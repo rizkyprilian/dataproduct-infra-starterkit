@@ -1,0 +1,49 @@
+# Default values for database-tls-cert.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: ""
+
+clusterCertManager:
+  serviceAccountName: cert-manager
+  namespace: cert-manager
+
+rootCA:
+  secretName: ""
+  key: root-ca.pem
+
+rootConcatController:
+  imageName: bitnami/kubectl:latest
+  replicas: 1
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+dbServerTLSCertIssuers: []
+# - certName: app-airflow-dev-cert
+#   serviceAccountName: app-airflow-dev-sa
+#   vault:
+#     path: pki_int_prod_db/sign/app-cert
+#     role: k8s-dev-cluster-app
+#     mount: /v1/auth/k8s-dev-cluster
+#     server: https://vault.company.com
+#   usages:
+#     - client auth
+#   commonName: cluster-app-airflow-rw

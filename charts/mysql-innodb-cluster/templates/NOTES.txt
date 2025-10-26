@@ -1,0 +1,49 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your MySQL InnoDB Cluster "{{ include "mysql-innodb-cluster.clusterName" . }}" has been deployed.
+
+Cluster Configuration:
+- MySQL Instances: {{ .Values.mysql.instances }}
+- MySQL Version: {{ .Values.mysql.version }}
+- Router Instances: {{ .Values.router.instances }}
+- Storage Size: {{ .Values.storage.size }} per instance
+
+To get the status of your cluster:
+
+  kubectl get innodbcluster {{ include "mysql-innodb-cluster.clusterName" . }} -n {{ .Release.Namespace }}
+
+To get the root password:
+
+  kubectl get secret {{ .Values.secretName }} -n {{ .Release.Namespace }} -o jsonpath='{.data.rootPassword}' | base64 -d
+
+To connect to your MySQL cluster:
+
+  1. Port-forward the MySQL service:
+     kubectl port-forward svc/{{ include "mysql-innodb-cluster.clusterName" . }} 3306:3306 -n {{ .Release.Namespace }}
+
+  2. Connect using mysql client:
+     mysql -h 127.0.0.1 -P 3306 -u root -p
+
+Connection Endpoints:
+- Primary Service (R/W): {{ include "mysql-innodb-cluster.clusterName" . }}.{{ .Release.Namespace }}.svc.cluster.local:3306
+- Router R/W Port: 6446
+- Router R/O Port: 6447
+
+{{- if .Values.backup.enabled }}
+
+Backup Configuration:
+- Backup Enabled: Yes
+{{- if .Values.backup.schedules }}
+- Scheduled Backups: {{ len .Values.backup.schedules }}
+{{- range .Values.backup.schedules }}
+  - {{ .name }}: {{ .schedule }}
+{{- end }}
+{{- end }}
+
+To list backups:
+  kubectl get mysqlbackup -n {{ .Release.Namespace }}
+{{- end }}
+
+For more information:
+- Chart Documentation: https://github.com/rizkyprilian/dataproduct-starterkit/tree/main/charts/mysql-innodb-cluster
+- MySQL Operator Docs: https://dev.mysql.com/doc/mysql-operator/en/

@@ -1,0 +1,41 @@
+Thank you for installing {{ .Chart.Name }}!
+
+{{- if .Values.users }}
+
+Created {{ len .Values.users }} Ceph RGW user(s):
+{{- range .Values.users }}
+- {{ .name }}
+{{- end }}
+
+To get user credentials:
+  kubectl get secret {{ (index .Values.users 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.AccessKey}' | base64 -d
+  kubectl get secret {{ (index .Values.users 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.SecretKey}' | base64 -d
+{{- end }}
+
+{{- if .Values.buckets }}
+
+Created {{ len .Values.buckets }} bucket(s):
+{{- range .Values.buckets }}
+- {{ .name }}
+{{- end }}
+
+To get bucket credentials and endpoint:
+  # Bucket name
+  kubectl get configmap {{ (index .Values.buckets 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.BUCKET_NAME}'
+  
+  # Bucket endpoint
+  kubectl get configmap {{ (index .Values.buckets 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.BUCKET_HOST}'
+  
+  # Access credentials
+  kubectl get secret {{ (index .Values.buckets 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d
+  kubectl get secret {{ (index .Values.buckets 0).name }} -n {{ .Release.Namespace }} -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d
+{{- end }}
+
+{{- if not (or .Values.users .Values.buckets) }}
+
+No users or buckets configured. Update your values.yaml to create resources.
+{{- end }}
+
+For more information:
+- Chart Documentation: https://github.com/rizkyprilian/dataproduct-starterkit/tree/main/charts/ceph-rgw-resources
+- Rook Ceph Docs: https://rook.io/docs/rook/latest/

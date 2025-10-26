@@ -1,0 +1,123 @@
+# Production Configuration with Vault TLS Certificates
+# This example demonstrates MySQL InnoDB Cluster with:
+# - 3 MySQL instances for high availability
+# - Vault-issued TLS certificates via cert-manager
+# - Automated certificate rotation
+# - S3 backups
+# - Compatible with the same Vault PKI as PostgreSQL
+
+mysql:
+  instances: 3
+  version: "9.1.0"
+  baseServerId: 1000
+
+router:
+  instances: 2
+  version: "9.1.0"
+
+storage:
+  size: 100Gi
+  storageClass: "fast-ssd"
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    memory: "4Gi"
+    cpu: "2"
+  limits:
+    memory: "8Gi"
+    cpu: "4"
+
+# Disable self-signed certificates
+tls:
+  useSelfSigned: false
+
+# Enable Vault-issued TLS certificates
+serverCerts:
+  enabled: true
+  commonName: mysql-cluster-primary
+  dnsNames:
+    # External DNS names
+    - mysql.prod.db.company.com
+    - mysql-ro.prod.db.company.com
+    # Internal Kubernetes DNS names
+    - my-mysql-cluster
+    - my-mysql-cluster.production
+    - my-mysql-cluster.production.svc
+    - my-mysql-cluster.production.svc.cluster.local
+    # Router service names
+    - my-mysql-cluster-router
+    - my-mysql-cluster-router.production.svc.cluster.local
+  issuer:
+    # Vault PKI path for signing certificates
+    vaultPath: pki_int_dev_db/sign/mysql-role
+    # Vault server URL
+    vaultServer: https://vault.company.com
+    # Kubernetes authentication configuration
+    kubernetesAuth:
+      role: mysql-cert-issuer
+      mountPath: /v1/auth/kubernetes-prod
+
+secretName: mysql-root-secret
+
+mycnf: |
+  [mysqld]
+  max_connections=500
+  innodb_buffer_pool_size=6G
+  innodb_log_file_size=1G
+  innodb_flush_log_at_trx_commit=1
+  sync_binlog=1
+  # TLS/SSL Configuration
+  require_secure_transport=ON
+  ssl_cipher=ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384
+  tls_version=TLSv1.2,TLSv1.3
+
+service:
+  type: ClusterIP
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+backup:
+  enabled: true
+  profiles:
+    - name: daily-full-backup
+      dumpInstance:
+        dumpOptions:
+          threads: 4
+        storage:
+          s3:
+            bucketName: prod-mysql-backups
+            prefix: innodb-cluster
+            endpoint: https://s3.amazonaws.com
+            region: us-east-1
+            credentials: s3-backup-credentials
+  
+  schedules:
+    - name: daily-backup-schedule
+      schedule: "0 2 * * *"
+      backupProfileName: daily-full-backup
+      enabled: true
+      deleteBackupData: false
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+affinity:
+  enablePodAntiAffinity: true
+  podAntiAffinityType: required
+  topologyKey: kubernetes.io/hostname
+
+nodeSelector:
+  workload: database
+
+labels:
+  environment: production
+  tier: database
+  tls: vault-managed
+
+annotations:
+  backup.policy: "daily"
+  monitoring: "enabled"
+  tls.source: "vault"

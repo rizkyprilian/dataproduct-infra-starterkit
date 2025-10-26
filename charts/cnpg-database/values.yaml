@@ -1,0 +1,299 @@
+
+# Set number of instances
+instances: 1
+
+# Refer to https://github.com/cloudnative-pg/postgres-containers/pkgs/container/postgresql/versions?filters%5Bversion_type%5D=tagged
+imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
+
+# Set Storage Size and Storage Class
+storage:
+  size: 1Gi
+  storageClass: "ceph-blockpool-ssd-erasurecoded"
+
+encryptedSealedSecrets: []
+  # - name: "somesealedsecret"
+  #   encryptedData:
+  #     key: "sealed values"
+  #   labels:
+  #     cnpg.io/reload: "true"
+  #   type: kubernetes.io/basic-auth
+
+dbRoles:
+  - name: teleport-admin
+    ensure: present
+    comment: "Teleport Admin User for dynamically provisioning users according to teleport usernames."
+    login: true
+    inherit: true
+    disablePassword: true
+    connectionLimit: 20
+    createrole: true
+  - name: dataops
+    ensure: present
+    comment: "DataOps Admin User. Superuser. Can create role, database, and login."
+    login: true
+    connectionLimit: 20
+    createdb: true
+    createrole: true
+    inherit: true
+    superuser: true
+    disablePassword: true
+
+# Declarative Database Management
+# Create additional databases beyond the bootstrap database
+# Refer to: https://cloudnative-pg.io/documentation/current/declarative_database_management/
+databases: []
+  # - name: mydb  # Database name in PostgreSQL (required)
+  #   owner: app  # PostgreSQL role that owns the database (required)
+  #   ensure: present  # present or absent (default: present)
+  #   
+  #   # Optional: Manage extensions in the database
+  #   extensions:
+  #     - name: bloom
+  #       ensure: present  # present or absent (default: present)
+  #     - name: pg_stat_statements
+  #       ensure: present
+  #       schema: public  # Optional: schema to install the extension
+  #       version: "1.10"  # Optional: specific version
+  #   
+  #   # Optional: Manage schemas in the database
+  #   schemas:
+  #     - name: app
+  #       owner: app
+  #       ensure: present  # present or absent (default: present)
+  #     - name: analytics
+  #       owner: dataops
+  #       ensure: present
+
+bootstrapDB:
+  database: app
+  dbOwner: app
+  postInitSQL:
+    - key: init.sql
+      value: |
+        -- enable basic extension
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+        CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+        -- create role for teleport-admin
+        CREATE ROLE "teleport-admin" WITH LOGIN CREATEROLE;
+  
+  # Bootstrap from a live cluster (pg_basebackup mode)
+  # Uncomment the pg_basebackup section to clone from a running PostgreSQL cluster
+  # NOTE: When pg_basebackup is enabled, initdb settings above will be ignored
+  # pg_basebackup:
+  #   source: source-cluster  # Must match the name in externalClusters
+  #   
+  #   # Optional: Configure application database after cloning
+  #   database: app
+  #   owner: app
+  #   
+  #   # Optional: Secret containing database credentials
+  #   # If provided, the password will be updated after bootstrap
+  #   secret:
+  #     name: app-secret  # Secret with 'username' and 'password' keys
+  
+  # Bootstrap from a backup (recovery mode)
+  # Uncomment the recovery section below to restore from a backup
+  # NOTE: When recovery is enabled, initdb and pg_basebackup settings will be ignored
+  # recovery:
+  #   source: origin  # Must match the name in externalClusters
+  #   
+  #   # Option 1: Recover from a Backup object (if you have a Backup resource)
+  #   backup:
+  #     name: backup-example
+  #   
+  #   # Option 2: Recover from external cluster (defined in externalClusters below)
+  #   # Leave backup section commented if using externalClusters
+  #   
+  #   # Optional: Specify database and owner if different from backup
+  #   database: app
+  #   owner: app
+  #   
+  #   # Optional: Point-in-Time Recovery (PITR)
+  #   # Uncomment ONE of the following recovery targets:
+  #   recoveryTarget:
+  #     # Recover to a specific timestamp
+  #     # targetTime: "2024-01-15 10:00:00.000000+00"
+  #     
+  #     # Recover to a specific transaction ID
+  #     # targetXID: "12345"
+  #     
+  #     # Recover to a named restore point
+  #     # targetName: "restore_point_name"
+  #     
+  #     # Recover to a specific LSN (Log Sequence Number)
+  #     # targetLSN: "0/3000000"
+  #     
+  #     # Recover to the earliest consistent point
+  #     # targetImmediate: true
+
+externalClusters: []
+  # Define external clusters for pg_basebackup (live cloning) or recovery (from backup)
+  # 
+  # Example 1: For pg_basebackup - Clone from live cluster with password auth
+  # - name: source-cluster
+  #   connectionParameters:
+  #     host: source-cluster-rw.namespace.svc.cluster.local
+  #     user: streaming_replica
+  #     dbname: postgres
+  #   password:
+  #     name: source-cluster-replica-user  # Secret with 'password' key
+  #     key: password
+  #
+  # Example 2: For pg_basebackup - Clone from live cluster with TLS cert auth
+  # - name: source-cluster
+  #   connectionParameters:
+  #     host: source-cluster-rw.namespace.svc.cluster.local
+  #     user: streaming_replica
+  #     sslmode: verify-full
+  #   sslKey:
+  #     name: source-cluster-replication
+  #     key: tls.key
+  #   sslCert:
+  #     name: source-cluster-replication
+  #     key: tls.crt
+  #   sslRootCert:
+  #     name: source-cluster-ca
+  #     key: ca.crt
+  #
+  # Example 3: For recovery - Using Barman Cloud Plugin (recommended)
+  # - name: origin
+  #   plugin:
+  #     name: barman-cloud.cloudnative-pg.io
+  #     parameters:
+  #       barmanObjectName: cluster-example-backup  # Name of the ObjectStore resource
+  #       serverName: cluster-example  # Original cluster name in the backup
+  #
+  # Example 4: For recovery - Direct barmanObjectStore configuration
+  # - name: origin
+  #   barmanObjectStore:
+  #     destinationPath: s3://your-bucket-name/
+  #     endpointURL: https://s3.amazonaws.com
+  #     wal:
+  #       compression: gzip
+  #       maxParallel: 8
+  #     data:
+  #       compression: gzip
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: s3-credentials
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: s3-credentials
+  #         key: ACCESS_SECRET_KEY
+  #     serverName: cluster-example  # Original cluster name in the backup
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "1"
+
+rootCA:
+  secrets:
+   - secretName: "pg-root-ca"
+     key: root-ca.pem
+
+rootConcatController:
+  imageName: rprilian/kubectl-jq:latest
+  replicas: 1
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+serverCerts:
+  enabled: true
+  commonName: cluster-app-sample-rw
+  # fullchainSecretName: sample-fullchain
+  dnsNames:
+    - sample.prod.db.company.com
+    - sample-ro.prod.db.company.com
+    - cluster-dbpg-app-sample-rw
+    - cluster-dbpg-app-sample-rw.sample
+    - cluster-dbpg-app-sample-rw.sample.svc
+    - cluster-dbpg-app-sample-r
+    - cluster-dbpg-app-sample-r.sample
+    - cluster-dbpg-app-sample-r.sample.svc
+    - cluster-dbpg-app-sample-ro
+    - cluster-dbpg-app-sample-ro.sample
+    - cluster-dbpg-app-sample-ro.sample.svc
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+replicationClientCerts:
+  enabled: true
+  commonName: streaming_replica
+  # fullchainSecretName: sample-fullchain
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+customPgHBA:
+  - hostnossl all all 0.0.0.0/0 reject
+  - hostnossl all all ::/0 reject
+  - hostssl all all ::/0 cert
+  - hostssl all all 0.0.0.0/0 cert
+
+affinity: 
+  enablePodAntiAffinity: true #default value
+  topologyKey: kubernetes.io/hostname #defaul value
+  podAntiAffinityType: preferred #default value
+
+backup:
+  enabled: true
+  # if using object store, choose either s3 or gcs. cannot be both
+  retentionPolicy: "30d"
+
+  s3:
+    enabled: true
+    destinationPath: "s3://[your-bucket-name]/"
+    endpointURL: "https://s3.amazonaws.com"
+    walCompression: "gzip"
+    dataCompression: "gzip"
+    credentials:
+      accessKeyExistingSecret: "s3-credentials" #key: AWS_ACCESS_KEY_ID
+      secretKeyExistingSecret: "s3-credentials" #key: AWS_SECRET_ACCESS_KEY
+
+  gcs:
+    enabled: false
+    destinationPath: "s3://[your-bucket-name]/"
+    dataCompression: "gzip"
+    googleCredentialsExistingSecret: "gcs-credentials" #key: gcsCredentials
+
+  volumeSnapshot:
+    enabled: false
+    className: "ceph-blockpool-ssd-erasurecoded" 
+
+  scheduledBackups:
+    enabled: true
+    schedules:
+      - cronSchedule: "5 1 * * 6"
+        backupOwnerReference: cluster
+        immediate: true
+        method: barmanObjectStore
+        target: primary

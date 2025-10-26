@@ -1,0 +1,169 @@
+# Example values file for cloning from a live PostgreSQL cluster
+# Use this as a template for pg_basebackup bootstrap
+
+instances: 1
+imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
+
+storage:
+  size: 10Gi
+  storageClass: "ceph-blockpool-ssd-erasurecoded"
+
+# Database roles (will be cloned from source, but can be managed after)
+dbRoles:
+  - name: teleport-admin
+    ensure: present
+    comment: "Teleport Admin User for dynamically provisioning users according to teleport usernames."
+    login: true
+    inherit: true
+    disablePassword: true
+    connectionLimit: 20
+    createrole: true
+  - name: dataops
+    ensure: present
+    comment: "DataOps Admin User. Superuser. Can create role, database, and login."
+    login: true
+    connectionLimit: 20
+    createdb: true
+    createrole: true
+    inherit: true
+    superuser: true
+    disablePassword: true
+
+# pg_basebackup configuration
+bootstrapDB:
+  # Clone from live cluster using pg_basebackup
+  pg_basebackup:
+    source: source-cluster  # Must match the name in externalClusters
+    
+    # Optional: Configure application database after cloning
+    database: app
+    owner: app
+    
+    # Optional: Update password after clone
+    secret:
+      name: app-secret  # Secret with 'username' and 'password' keys
+
+# External cluster configuration for pg_basebackup
+externalClusters:
+  # OPTION A: Clone from CloudNativePG cluster with TLS (recommended)
+  - name: source-cluster
+    connectionParameters:
+      host: cluster-source-cluster-rw.default.svc.cluster.local
+      user: streaming_replica
+      sslmode: verify-full
+    sslKey:
+      name: source-cluster-replication
+      key: tls.key
+    sslCert:
+      name: source-cluster-replication
+      key: tls.crt
+    sslRootCert:
+      name: source-cluster-ca
+      key: ca.crt
+
+  # OPTION B: Clone from cluster with password authentication
+  # - name: source-cluster
+  #   connectionParameters:
+  #     host: source-cluster-rw.namespace.svc.cluster.local
+  #     user: streaming_replica
+  #     dbname: postgres
+  #   password:
+  #     name: source-cluster-replica-user
+  #     key: password
+
+  # OPTION C: Clone from external PostgreSQL server
+  # - name: source-cluster
+  #   connectionParameters:
+  #     host: postgres.example.com
+  #     port: "5432"
+  #     user: streaming_replica
+  #     dbname: postgres
+  #   password:
+  #     name: external-postgres-replication
+  #     key: password
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "200m"
+  limits:
+    memory: "2Gi"
+    cpu: "2"
+
+# TLS Configuration (adjust as needed for the new cluster)
+serverCerts:
+  enabled: true
+  commonName: cluster-app-sample-rw
+  dnsNames:
+    - sample.prod.db.company.com
+    - sample-ro.prod.db.company.com
+    - cluster-dbpg-app-sample-rw
+    - cluster-dbpg-app-sample-rw.sample
+    - cluster-dbpg-app-sample-rw.sample.svc
+    - cluster-dbpg-app-sample-r
+    - cluster-dbpg-app-sample-r.sample
+    - cluster-dbpg-app-sample-r.sample.svc
+    - cluster-dbpg-app-sample-ro
+    - cluster-dbpg-app-sample-ro.sample
+    - cluster-dbpg-app-sample-ro.sample.svc
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+replicationClientCerts:
+  enabled: true
+  commonName: streaming_replica
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault-private.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+customPgHBA:
+  - hostnossl all all 0.0.0.0/0 reject
+  - hostnossl all all ::/0 reject
+  - hostssl all all ::/0 cert
+  - hostssl all all 0.0.0.0/0 cert
+
+affinity: 
+  enablePodAntiAffinity: true
+  topologyKey: kubernetes.io/hostname
+  podAntiAffinityType: preferred
+
+# Backup configuration for the new cluster
+backup:
+  enabled: true
+  retentionPolicy: "30d"
+
+  s3:
+    enabled: true
+    destinationPath: "s3://your-bucket-name/"  # Use different path than source
+    endpointURL: "https://s3.amazonaws.com"
+    walCompression: "gzip"
+    dataCompression: "gzip"
+    credentials:
+      accessKeyExistingSecret: "s3-credentials"
+      secretKeyExistingSecret: "s3-credentials"
+
+  gcs:
+    enabled: false
+    destinationPath: "gs://your-bucket-name/"
+    dataCompression: "gzip"
+    googleCredentialsExistingSecret: "gcs-credentials"
+
+  volumeSnapshot:
+    enabled: false
+    className: "ceph-blockpool-ssd-erasurecoded"
+
+  scheduledBackups:
+    enabled: true
+    schedules:
+      - cronSchedule: "5 1 * * 6"
+        backupOwnerReference: cluster
+        immediate: true
+        method: barmanObjectStore
+        target: primary

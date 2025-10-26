@@ -1,0 +1,30 @@
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+
+externalSecretOperator:
+  vaultSecretStore:
+    enabled: false
+    # server: "https://vault.company.com"
+    # path: "kv-coredata"
+    # version: "v2"
+    # mountPath: "coredata-k8s-dev"
+    # role: "pg-shared-dev"
+  deploySecrets: []
+  # - name: pg-shared-dev-accounts
+  #   data:
+  #     - secretKey: env
+  #       remoteKey: dev/pg-shared-dev-accounts
+  #       remoteProperty: env
+  #       conversionStrategy: "Default"
+  #       decodingStrategy: "None"
+  #       metadataPolicy: "None"

@@ -1,0 +1,166 @@
+# Example values file for database recovery
+# Use this as a template for recovering from a backup
+
+instances: 1
+imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
+
+storage:
+  size: 1Gi
+  storageClass: "ceph-blockpool-ssd-erasurecoded"
+
+# Database roles will be restored from backup
+dbRoles:
+  - name: teleport-admin
+    ensure: present
+    comment: "Teleport Admin User for dynamically provisioning users according to teleport usernames."
+    login: true
+    inherit: true
+    disablePassword: true
+    connectionLimit: 20
+    createrole: true
+  - name: dataops
+    ensure: present
+    comment: "DataOps Admin User. Superuser. Can create role, database, and login."
+    login: true
+    connectionLimit: 20
+    createdb: true
+    createrole: true
+    inherit: true
+    superuser: true
+    disablePassword: true
+
+# Recovery configuration
+bootstrapDB:
+  # OPTION A: Recover from a Backup object
+  recovery:
+    source: origin
+    backup:
+      name: backup-cluster-example-20241022  # Replace with your backup name
+    database: app
+    owner: app
+    # Optional: Add PITR if needed
+    # recoveryTarget:
+    #   targetTime: "2024-10-22 08:00:00.000000+00"
+
+  # OPTION B: Recover from object store (comment out OPTION A if using this)
+  # recovery:
+  #   source: origin
+  #   database: app
+  #   owner: app
+  #   recoveryTarget:
+  #     targetTime: "2024-10-22 08:00:00.000000+00"
+
+# External cluster configuration (required for OPTION B)
+externalClusters: []
+  # Uncomment for recovery from object store using Barman Cloud Plugin
+  # - name: origin
+  #   plugin:
+  #     name: barman-cloud.cloudnative-pg.io
+  #     parameters:
+  #       barmanObjectName: cluster-example-backup  # ObjectStore resource name
+  #       serverName: cluster-example  # Original cluster name
+  #
+  # Alternative: Direct barmanObjectStore configuration
+  # - name: origin
+  #   barmanObjectStore:
+  #     destinationPath: s3://your-bucket-name/
+  #     endpointURL: https://s3.amazonaws.com
+  #     serverName: cluster-example
+  #     wal:
+  #       compression: gzip
+  #       maxParallel: 8
+  #     data:
+  #       compression: gzip
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: s3-credentials
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: s3-credentials
+  #         key: ACCESS_SECRET_KEY
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "1"
+
+# TLS Configuration (adjust as needed)
+serverCerts:
+  enabled: true
+  commonName: cluster-app-sample-rw
+  dnsNames:
+    - sample.prod.db.company.com
+    - sample-ro.prod.db.company.com
+    - cluster-dbpg-app-sample-rw
+    - cluster-dbpg-app-sample-rw.sample
+    - cluster-dbpg-app-sample-rw.sample.svc
+    - cluster-dbpg-app-sample-r
+    - cluster-dbpg-app-sample-r.sample
+    - cluster-dbpg-app-sample-r.sample.svc
+    - cluster-dbpg-app-sample-ro
+    - cluster-dbpg-app-sample-ro.sample
+    - cluster-dbpg-app-sample-ro.sample.svc
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault-private.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+replicationClientCerts:
+  enabled: true
+  commonName: streaming_replica
+  issuer:
+    vaultPath: pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault
+    vaultServer: https://vault-private.company.com
+    kubernetesAuth:
+      role: replace-this-with-assigned-role-name-in-vault
+      mountPath: /v1/auth/replace-this-with-k8s-auth-mount-path-in-vault
+
+customPgHBA:
+  - hostnossl all all 0.0.0.0/0 reject
+  - hostnossl all all ::/0 reject
+  - hostssl all all ::/0 cert
+  - hostssl all all 0.0.0.0/0 cert
+
+affinity: 
+  enablePodAntiAffinity: true
+  topologyKey: kubernetes.io/hostname
+  podAntiAffinityType: preferred
+
+# Backup configuration (should match the original cluster's backup config)
+backup:
+  enabled: true
+  retentionPolicy: "30d"
+
+  s3:
+    enabled: true
+    destinationPath: "s3://your-bucket-name/"  # Replace with your bucket
+    endpointURL: "https://s3.amazonaws.com"
+    walCompression: "gzip"
+    dataCompression: "gzip"
+    credentials:
+      accessKeyExistingSecret: "s3-credentials"
+      secretKeyExistingSecret: "s3-credentials"
+
+  gcs:
+    enabled: false
+    destinationPath: "gs://your-bucket-name/"
+    dataCompression: "gzip"
+    googleCredentialsExistingSecret: "gcs-credentials"
+
+  volumeSnapshot:
+    enabled: false
+    className: "ceph-blockpool-ssd-erasurecoded"
+
+  scheduledBackups:
+    enabled: true
+    schedules:
+      - cronSchedule: "5 1 * * 6"
+        backupOwnerReference: cluster
+        immediate: true
+        method: barmanObjectStore
+        target: primary

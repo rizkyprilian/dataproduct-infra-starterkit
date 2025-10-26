@@ -1,0 +1,23 @@
+{{- $relNamespace := .Release.Namespace -}}
+{{- range $i, $serverCert := .Values.dbServerTLSCertIssuers }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $serverCert.certName | trim | lower }}-cert-issuer
+  namespace: {{ $relNamespace }}
+spec:
+  vault:
+    path: {{ $serverCert.vault.path | default "pki_int" }}
+    server: {{ $serverCert.vault.server | default "https://vault.company.com" }}
+    auth:
+      kubernetes:
+        role: {{ $serverCert.vault.role | default "pki_int" }}
+        mountPath: {{ $serverCert.vault.mount | default "v1/auth/kubernetes" }}
+        secretRef:
+          name: {{ $serverCert.serviceAccountName | default $serverCert.certName | trim | lower }}-token
+          key: token
+
+
+{{- end }}

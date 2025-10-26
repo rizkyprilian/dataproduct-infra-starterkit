@@ -1,0 +1,100 @@
+{{- $rel := .Release }}
+{{- if and .Values.serverCerts .Values.serverCerts.enabled }}
+{{- with .Values.serverCerts }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert
+  labels:
+    cnpg.io/reload: "true"
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert
+spec:
+  secretName: {{ $rel.Name }}-pg-server-cert
+  usages:
+    - server auth
+  issuerRef:
+    name: {{ $rel.Name }}-pg-server-cert-issuer
+    kind: Issuer
+  commonName: {{ .commonName | default "cluster-app-rw" }}
+{{- if .dnsNames }}
+  dnsNames:
+{{- range .dnsNames }}
+    - {{ . | quote }}
+{{- end }}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert-issuer
+spec:
+  vault:
+    path: {{ .issuer.vaultPath | default "pki_int_dev_db/sign/replace-this-with-assigned-role-name-in-vault" }}
+    server: {{ .issuer.vaultServer | default "https://vault.company.com" }}
+    auth:
+      kubernetes:
+        role: {{ .issuer.kubernetesAuth.role | default "replace-this-with-assigned-role-name-in-vault" }}
+        mountPath: {{ .issuer.kubernetesAuth.mountPath | default "/v1/auth/replace-this-with-k8s-auth-mount-path-in-vault" }}
+        secretRef:
+          name: {{ $rel.Name }}-pg-server-cert-sa-token 
+          key: token
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert-sa
+---
+apiVersion: v1
+kind: Secret
+metadata:
+ name: {{ $rel.Name }}-pg-server-cert-sa-token
+ annotations:
+   kubernetes.io/service-account.name: {{ $rel.Name }}-pg-server-cert-sa # replacement
+type: kubernetes.io/service-account-token
+---
+---
+# Use the Vault Client's JWT as the Reviewer JWT
+# https://developer.hashicorp.com/vault/docs/auth/kubernetes#use-the-vault-client-s-jwt-as-the-reviewer-jwt
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+   name: {{ $rel.Name }}-pg-server-cert-issuer-tokenreview
+roleRef:
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+   name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: {{ $rel.Name }}-pg-server-cert-sa
+  namespace: {{ $rel.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert-issuer
+rules:
+  - apiGroups: ['']
+    resources: ['serviceaccounts/token']
+    resourceNames: ["{{ $rel.Name }}-pg-server-cert-sa"]
+    verbs: ['create']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $rel.Name }}-pg-server-cert-issuer
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $rel.Name }}-pg-server-cert-issuer
+{{- end }}  
+{{- end }}

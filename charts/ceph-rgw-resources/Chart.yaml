@@ -1,0 +1,32 @@
+apiVersion: v2
+name: ceph-rgw-resources
+description: A simple Helm chart for declaratively managing Ceph RGW (RADOS Gateway) buckets and users using Rook
+
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "1.15.0"
+
+keywords:
+  - ceph
+  - rook
+  - object-storage
+  - s3
+  - rgw
+  - bucket
+
+maintainers:
+  - name: Rizky Prilian
+
+home: https://github.com/rizkyprilian/dataproduct-starterkit
+sources:
+  - https://github.com/rook/rook
+  - https://rook.io/docs/rook/latest/
