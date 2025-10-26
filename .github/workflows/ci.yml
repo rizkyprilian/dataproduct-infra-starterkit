@@ -99,8 +99,17 @@ jobs:
 
       - name: Push charts to GHCR
         run: |
-          shopt -s nullglob
-          for chart in ${PACKAGE_PATH}/*.tgz; do
+          found=false
+          for chart in "$PACKAGE_PATH"/*.tgz; do
+            if [ ! -e "$chart" ]; then
+              # glob didn't match anything
+              break
+            fi
+            found=true
             echo "Pushing $chart to $OCI_REPO ..."
             helm push "$chart" "$OCI_REPO"
           done
+          if [ "$found" = false ]; then
+            echo "No chart packages found in $PACKAGE_PATH; nothing to push."
+          fi
+

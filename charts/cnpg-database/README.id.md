@@ -334,3 +334,5 @@ Check operator logs untuk errors.
 ## Lisensi
 
 Lihat file [LICENSE](../../LICENSE) di root repository.
+
+trigger
