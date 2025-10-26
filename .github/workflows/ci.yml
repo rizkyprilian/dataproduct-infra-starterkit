@@ -85,17 +85,22 @@ jobs:
           path: ${{ env.PACKAGE_PATH }}/*.tgz
           retention-days: 30
 
-      - name: Deploy to GitHub Packages (OCI)
+      - name: Compute GHCR path (lowercase owner)
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "OWNER_LC=$OWNER_LC" >> $GITHUB_ENV
+          echo "OCI_REPO=oci://ghcr.io/$OWNER_LC" >> $GITHUB_ENV
+
+      - name: Login to GHCR for Helm OCI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "$GITHUB_TOKEN" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-          
+
+      - name: Push charts to GHCR
+        run: |
+          shopt -s nullglob
           for chart in ${PACKAGE_PATH}/*.tgz; do
-            if [ -f "$chart" ]; then
-              CHART_NAME=$(basename "$chart" .tgz | sed 's/-[0-9].*//')
-              echo "Uploading $chart to ghcr.io/${{ github.repository_owner }}/${CHART_NAME}..."
-              helm push "$chart" oci://ghcr.io/${{ github.repository_owner }}
-              echo "Done"
-            fi
+            echo "Pushing $chart to $OCI_REPO ..."
+            helm push "$chart" "$OCI_REPO"
           done
