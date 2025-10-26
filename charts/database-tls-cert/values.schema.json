@@ -1,0 +1,116 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Values",
+    "type": "object",
+    "properties": {
+        "nameOverride": {
+            "description": "Custom name that will override chart release name",
+            "type": "string"
+        },
+        "fullnameOverride": {
+            "description": "Create a default fully qualified app name. If release name contains chart name it will be used as a full name.",
+            "type": "string"
+        },
+        "clusterCertManager": {
+            "description": "Define cert-manager name in the cluster. cert-manager has to be installed in the cluster.",
+            "type": "object",
+            "properties": {
+                "serviceAccountName": {
+                    "description": "Service account name currently deployed for cert-manager",
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "Namespace name where cert-manager is currently deployed",
+                    "type": "string"
+                }
+            },
+            "required": ["serviceAccountName", "namespace"]
+        },
+        "dbServerTLSCertIssuers": {
+            "description": "List of Database Certificates that will be deployed",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "certName": {
+                        "description": "Name of the certificate",
+                        "type": "string"
+                    },
+                    "serviceAccountName": {
+                        "description": "Service account name that will be used to create the certificate. If not supplied will use certName",
+                        "type": "string"
+                    },
+                    "vault": {
+                        "description": "Vault auth configuration that will be used to authenticate to vault. Currently only support kubernetes auth method",
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "description": "Path to the PKI Certificate Mount Path in vault",
+                                "type": "string"
+                            },
+                            "role": {
+                                "description": "Role name that will be used to authenticate to vault",
+                                "type": "string"
+                            },
+                            "mount": {
+                                "description": "Mount path of for Kubernetes Auth Method in Vault",
+                                "type": "string"
+                            },
+                            "server": {
+                                "description": "Vault server address",
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "required": ["path", "role", "mount", "server"]
+                    },
+                    "dnsNames": {
+                        "description": "List of DNS names that will be added to the certificate",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalOutputFormats": {
+                        "description": "List of additionalOutputFormats that will be added to the secret. Currently only support CombinedPEM and DER",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["CombinedPEM", "DER"]
+                        }
+                    },
+                    "ipAddresses": {
+                        "description": "List of ipAddress that will be added to the certificate IP SANS if allowed",
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "ipv4"
+                                },
+                                {
+                                    "type": "string",
+                                    "format": "ipv6"
+                                }
+                            ]
+                        }
+                    },
+                    "usages": {
+                        "description": "List of usages that will be added to the certificate",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "commonName": {
+                        "description": "Common name that will be added to the certificate",
+                        "type": "string"
+                    }
+                },
+                "required": ["certName", "vault", "commonName"]
+            },
+            "minItems": 1
+        }
+    },
+    "required": ["clusterCertManager", "dbServerTLSCertIssuers"]
+}

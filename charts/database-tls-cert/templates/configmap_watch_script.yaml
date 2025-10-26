@@ -1,0 +1,10 @@
+{{- $rel := .Release }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $rel.Name }}-concat-ca-watch-script
+  namespace: {{ $rel.Namespace }}
+data:
+  watch-and-sync.sh: |
+{{ .Files.Get "files/watch-and-sync.sh" | indent 4 }}

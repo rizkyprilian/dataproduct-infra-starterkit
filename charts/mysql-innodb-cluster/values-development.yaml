@@ -1,0 +1,56 @@
+# Development Configuration
+# This example demonstrates a minimal MySQL InnoDB Cluster for development:
+# - Single MySQL instance (no HA)
+# - Single Router instance
+# - Smaller storage and resource allocations
+# - No backups configured
+# - Self-signed TLS certificates
+
+mysql:
+  instances: 1
+  version: "9.1.0"
+  baseServerId: 1000
+
+router:
+  instances: 1
+  version: "9.1.0"
+
+storage:
+  size: 10Gi
+  storageClass: "standard"
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "2Gi"
+    cpu: "1"
+
+tls:
+  useSelfSigned: true
+
+secretName: mysql-root-secret
+
+mycnf: |
+  [mysqld]
+  max_connections=100
+  innodb_buffer_pool_size=512M
+
+service:
+  type: ClusterIP
+
+backup:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+affinity:
+  enablePodAntiAffinity: false
+
+labels:
+  environment: development
+  tier: database

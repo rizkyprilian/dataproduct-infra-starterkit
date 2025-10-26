@@ -1,0 +1,13 @@
+{{- $rel := .Release }}
+{{- with .Values.bootstrapDB.postInitSQL }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $rel.Name }}-cluster-init-sql-cm
+data:
+{{- range . }}
+{{- .key | nindent 2 }}: |
+{{- .value | nindent 4 }}
+{{- end -}}
+{{- end -}}

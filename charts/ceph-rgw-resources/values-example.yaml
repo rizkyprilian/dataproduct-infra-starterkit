@@ -1,0 +1,160 @@
+# Example Configuration for Ceph RGW Resources
+# This example demonstrates creating users and buckets with various configurations
+
+# Storage Class for Rook Ceph Object Storage
+storageClassName: rook-ceph-bucket
+
+# Name of your CephObjectStore resource
+objectStoreName: my-store
+
+# Create multiple users with different permissions
+users:
+  # Admin user with full permissions
+  - name: admin-user
+    displayName: "S3 Administrator"
+    quotas:
+      maxBuckets: 50
+      maxSize: 500G
+      maxObjects: 500000
+    capabilities:
+      user: "*"
+      bucket: "*"
+      usage: "*"
+      metadata: "*"
+  
+  # Application user with standard permissions
+  - name: app-user
+    displayName: "Application User"
+    quotas:
+      maxBuckets: 20
+      maxSize: 200G
+      maxObjects: 200000
+    capabilities:
+      bucket: "read, write"
+      usage: "read"
+  
+  # Read-only user for analytics
+  - name: analytics-user
+    displayName: "Analytics Read-Only User"
+    quotas:
+      maxBuckets: 10
+      maxSize: 50G
+    capabilities:
+      bucket: "read"
+      usage: "read"
+  
+  # Backup user with write-only permissions
+  - name: backup-user
+    displayName: "Backup User"
+    quotas:
+      maxBuckets: 5
+      maxSize: 1000G
+      maxObjects: 1000000
+    capabilities:
+      bucket: "write"
+
+# Create multiple buckets with different configurations
+buckets:
+  # Application data bucket with lifecycle policy
+  - name: app-data
+    generateBucketName: app-data
+    additionalConfig:
+      maxSize: "50G"
+      maxObjects: "50000"
+      bucketOwner: "app-user"
+      bucketLifecycle: |
+        {
+          "Rules": [
+            {
+              "ID": "DeleteOldTempFiles",
+              "Status": "Enabled",
+              "Prefix": "temp/",
+              "Expiration": {"Days": 7}
+            },
+            {
+              "ID": "AbortIncompleteUploads",
+              "Status": "Enabled",
+              "Prefix": "",
+              "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}
+            }
+          ]
+        }
+  
+  # Backup bucket with large quota
+  - name: backups
+    generateBucketName: backups
+    additionalConfig:
+      maxSize: "500G"
+      bucketMaxSize: "500G"
+      bucketOwner: "backup-user"
+      bucketLifecycle: |
+        {
+          "Rules": [
+            {
+              "ID": "ExpireOldBackups",
+              "Status": "Enabled",
+              "Prefix": "",
+              "Expiration": {"Days": 90}
+            }
+          ]
+        }
+  
+  # Logs bucket with short retention
+  - name: logs
+    generateBucketName: application-logs
+    additionalConfig:
+      maxSize: "100G"
+      bucketOwner: "app-user"
+      bucketLifecycle: |
+        {
+          "Rules": [
+            {
+              "ID": "DeleteOldLogs",
+              "Status": "Enabled",
+              "Prefix": "",
+              "Expiration": {"Days": 30}
+            }
+          ]
+        }
+  
+  # Media bucket with bucket policy
+  - name: media
+    generateBucketName: media-files
+    additionalConfig:
+      maxSize: "200G"
+      bucketOwner: "app-user"
+      bucketPolicy: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"AWS": "arn:aws:iam:::user/app-user"},
+              "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+              "Resource": ["arn:aws:s3:::media-files/*"]
+            },
+            {
+              "Effect": "Allow",
+              "Principal": {"AWS": "arn:aws:iam:::user/analytics-user"},
+              "Action": ["s3:GetObject", "s3:ListBucket"],
+              "Resource": ["arn:aws:s3:::media-files/*"]
+            }
+          ]
+        }
+  
+  # Shared bucket for multiple users
+  - name: shared-data
+    generateBucketName: shared-data
+    additionalConfig:
+      maxSize: "100G"
+      bucketMaxSize: "100G"
+      bucketOwner: "admin-user"
+
+# Global labels applied to all resources
+labels:
+  environment: production
+  managed-by: helm
+
+# Global annotations
+annotations:
+  description: "Ceph RGW resources managed by Helm"

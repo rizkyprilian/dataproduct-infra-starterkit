@@ -1,0 +1,53 @@
+{{- if and (.Values.serverCerts.enabled) (.Values.replicationClientCerts.enabled) -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-concat-ca-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.rootConcatController.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-concat-ca-controller
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-concat-ca-controller
+    spec:
+      serviceAccountName: {{ .Release.Name }}-concat-ca-sa
+{{- if .Values.rootConcatController.podSecurityContext }}
+      securityContext:
+{{- .Values.rootConcatController.podSecurityContext | toYaml | nindent 8 }}
+{{- end }}
+      containers:
+      - name: concat-ca
+        image: {{ .Values.rootConcatController.imageName }}
+        command: ["/bin/bash", "/scripts/watch-and-sync.sh"]
+        env:
+        - name: NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: SERVER_SECRET
+          value: {{ .Release.Name }}-pg-server-cert
+        - name: CLIENT_SECRET
+          value: {{ .Release.Name }}-pg-client-replication-cert
+        - name: TARGET_SERVER_SECRET
+          value: {{ .Release.Name }}-pg-server-cert-ca
+        - name: TARGET_CLIENT_SECRET
+          value: {{ .Release.Name }}-pg-client-replication-cert-ca
+        - name: ROOT_CA_SECRETS_JSON
+          value: {{ .Values.rootCA.secrets | toJson | quote }}
+        volumeMounts:
+        - name: sync-script
+          mountPath: /scripts
+{{- if .Values.rootConcatController.securityContext }}
+        securityContext:
+{{- .Values.rootConcatController.securityContext | toYaml | nindent 10 }}
+{{- end }}
+        resources:
+{{- .Values.rootConcatController.resources | toYaml | nindent 10 }}
+      volumes:
+      - name: sync-script
+        configMap:
+          name: {{ .Release.Name }}-concat-ca-watch-script
+{{- end }}

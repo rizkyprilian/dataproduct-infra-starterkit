@@ -1,0 +1,120 @@
+{{- $rel := .Release }}
+{{- if and .Values.serverCerts .Values.serverCerts.enabled }}
+{{- with .Values.serverCerts }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+spec:
+  secretName: {{ $rel.Name }}-mysql-server-cert
+  usages:
+    - server auth
+    - client auth
+  issuerRef:
+    name: {{ $rel.Name }}-mysql-server-cert-issuer
+    kind: Issuer
+  commonName: {{ .commonName | default "mysql-cluster-primary" }}
+{{- if .dnsNames }}
+  dnsNames:
+{{- range .dnsNames }}
+    - {{ . | quote }}
+{{- end }}
+{{- end }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-issuer
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+spec:
+  vault:
+    path: {{ .issuer.vaultPath | default "pki_int_dev_db/sign/mysql-role" }}
+    server: {{ .issuer.vaultServer | default "https://vault.example.com" }}
+    auth:
+      kubernetes:
+        role: {{ .issuer.kubernetesAuth.role | default "mysql-cert-issuer" }}
+        mountPath: {{ .issuer.kubernetesAuth.mountPath | default "/v1/auth/kubernetes" }}
+        secretRef:
+          name: {{ $rel.Name }}-mysql-server-cert-sa-token 
+          key: token
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-sa
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-sa-token
+  annotations:
+    kubernetes.io/service-account.name: {{ $rel.Name }}-mysql-server-cert-sa
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+type: kubernetes.io/service-account-token
+
+---
+# Use the Vault Client's JWT as the Reviewer JWT
+# https://developer.hashicorp.com/vault/docs/auth/kubernetes#use-the-vault-client-s-jwt-as-the-reviewer-jwt
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-issuer-tokenreview
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: {{ $rel.Name }}-mysql-server-cert-sa
+  namespace: {{ $rel.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-issuer
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: ['']
+    resources: ['serviceaccounts/token']
+    resourceNames: ["{{ $rel.Name }}-mysql-server-cert-sa"]
+    verbs: ['create']
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $rel.Name }}-mysql-server-cert-issuer
+  labels:
+    {{- include "mysql-innodb-cluster.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $rel.Name }}-mysql-server-cert-issuer
+{{- end }}  
+{{- end }}

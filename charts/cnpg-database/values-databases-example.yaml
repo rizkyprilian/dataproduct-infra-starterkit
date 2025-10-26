@@ -1,0 +1,138 @@
+# Example configuration for declarative database management
+# This example demonstrates how to create multiple databases with extensions and schemas
+
+instances: 1
+imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
+
+storage:
+  size: 10Gi
+  storageClass: "standard"
+
+# Bootstrap the cluster with the default 'app' database
+bootstrapDB:
+  database: app
+  dbOwner: app
+  postInitSQL:
+    - key: init.sql
+      value: |
+        -- Enable basic extensions in the bootstrap database
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+# Define additional roles that will own the databases
+dbRoles:
+  - name: app
+    ensure: present
+    login: true
+    inherit: true
+    connectionLimit: 50
+  - name: analytics_user
+    ensure: present
+    login: true
+    inherit: true
+    connectionLimit: 20
+  - name: reporting_user
+    ensure: present
+    login: true
+    inherit: true
+    connectionLimit: 10
+
+# Declarative database management
+# Create additional databases beyond the bootstrap database
+databases:
+  # Analytics database with time-series extensions
+  - name: analytics
+    owner: analytics_user
+    ensure: present
+    extensions:
+      - name: pg_stat_statements
+        ensure: present
+      - name: timescaledb
+        ensure: present
+        schema: public
+      - name: bloom
+        ensure: present
+    schemas:
+      - name: metrics
+        owner: analytics_user
+        ensure: present
+      - name: events
+        owner: analytics_user
+        ensure: present
+
+  # Reporting database with PostGIS for geospatial data
+  - name: reporting
+    owner: reporting_user
+    ensure: present
+    extensions:
+      - name: postgis
+        ensure: present
+      - name: postgis_topology
+        ensure: present
+      - name: pg_trgm
+        ensure: present
+        schema: public
+    schemas:
+      - name: reports
+        owner: reporting_user
+        ensure: present
+      - name: dashboards
+        owner: reporting_user
+        ensure: present
+
+  # Development database with common extensions
+  - name: development
+    owner: app
+    ensure: present
+    extensions:
+      - name: uuid-ossp
+        ensure: present
+      - name: pgcrypto
+        ensure: present
+      - name: hstore
+        ensure: present
+      - name: ltree
+        ensure: present
+
+# Backup configuration
+backup:
+  enabled: true
+  retentionPolicy: "30d"
+  s3:
+    enabled: true
+    destinationPath: "s3://my-backup-bucket/"
+    endpointURL: "https://s3.amazonaws.com"
+    walCompression: "gzip"
+    dataCompression: "gzip"
+    credentials:
+      accessKeyExistingSecret: "s3-credentials"
+      secretKeyExistingSecret: "s3-credentials"
+  scheduledBackups:
+    enabled: true
+    schedules:
+      - cronSchedule: "0 2 * * *"  # Daily at 2 AM
+        backupOwnerReference: cluster
+        immediate: true
+        method: barmanObjectStore
+        target: primary
+
+# Resource limits
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "500m"
+  limits:
+    memory: "4Gi"
+    cpu: "2"
+
+# Disable TLS for development
+serverCerts:
+  enabled: false
+
+replicationClientCerts:
+  enabled: false
+
+# Allow password authentication for development
+customPgHBA:
+  - hostssl all all 0.0.0.0/0 md5
+  - hostssl all all ::/0 md5

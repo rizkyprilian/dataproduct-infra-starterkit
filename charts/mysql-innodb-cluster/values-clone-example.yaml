@@ -1,0 +1,80 @@
+# Clone from Existing Cluster Example
+# This example demonstrates how to create a new MySQL InnoDB Cluster
+# by cloning data from an existing MySQL instance
+
+mysql:
+  instances: 3
+  version: "9.1.0"
+  baseServerId: 2000  # Different from source cluster
+
+router:
+  instances: 1
+  version: "9.1.0"
+
+storage:
+  size: 50Gi
+  storageClass: "standard"
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "1"
+  limits:
+    memory: "4Gi"
+    cpu: "2"
+
+tls:
+  useSelfSigned: true
+
+secretName: mysql-root-secret
+
+# Initialize by cloning from source cluster
+initDB:
+  enabled: true
+  clone:
+    # Source MySQL instance URL
+    # Format: host:port
+    donorUrl: source-cluster-0.source-cluster-instances.production.svc.cluster.local:3306
+    rootUser: root
+    # Secret containing the source cluster's root password
+    secretKeyRef:
+      name: source-mysql-root-secret
+
+mycnf: |
+  [mysqld]
+  max_connections=200
+  innodb_buffer_pool_size=2G
+
+service:
+  type: ClusterIP
+
+backup:
+  enabled: true
+  profiles:
+    - name: daily-backup
+      dumpInstance:
+        storage:
+          persistentVolumeClaim:
+            claimName: mysql-clone-backup-pvc
+  
+  schedules:
+    - name: daily-backup-schedule
+      schedule: "0 3 * * *"
+      backupProfileName: daily-backup
+      enabled: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+affinity:
+  enablePodAntiAffinity: true
+  podAntiAffinityType: preferred
+  topologyKey: kubernetes.io/hostname
+
+labels:
+  environment: staging
+  tier: database
+  cloned-from: production

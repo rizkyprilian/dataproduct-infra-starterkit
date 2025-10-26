@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-concat-ca-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.rootConcatController.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-concat-ca-controller
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-concat-ca-controller
+    spec:
+      serviceAccountName: {{ .Release.Name }}-concat-ca-sa
+{{- if .Values.rootConcatController.podSecurityContext }}
+      securityContext:
+{{- .Values.rootConcatController.podSecurityContext | toYaml | nindent 8 }}
+{{- end }}
+      containers:
+      - name: concat-ca
+        image: {{ .Values.rootConcatController.imageName }}
+        command: ["/bin/bash", "/scripts/watch-and-sync.sh"]
+        env:
+        - name: ROOT_CA_SECRET
+          value: {{ .Values.rootCA.secretName | default (printf "%s-pg-root-ca" .Release.Name) }}
+        - name: ROOT_CA_KEY
+          value: {{ .Values.rootCA.key | default "root-ca.pem" | quote }}
+        - name: NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: CLIENT_CERT_NAMES
+          value: '{{- range $index, $item := .Values.dbServerTLSCertIssuers }}{{ if $index }},{{ end }}{{ $item.certName }}{{- end }}'
+        volumeMounts:
+        - name: sync-script
+          mountPath: /scripts
+{{- if .Values.rootConcatController.securityContext }}
+        securityContext:
+{{- .Values.rootConcatController.securityContext | toYaml | nindent 10 }}
+{{- end }}
+        resources:
+{{- .Values.rootConcatController.resources | toYaml | nindent 10 }}
+      volumes:
+      - name: sync-script
+        configMap:
+          name: {{ .Release.Name }}-concat-ca-watch-script

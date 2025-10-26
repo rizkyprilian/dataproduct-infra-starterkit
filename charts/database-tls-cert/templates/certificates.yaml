@@ -1,0 +1,54 @@
+{{- $relNamespace := .Release.Namespace -}}
+{{- range $i, $serverCert := .Values.dbServerTLSCertIssuers }}
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $serverCert.certName | trim | lower }}
+  namespace: {{ $relNamespace }}
+  labels:
+    cnpg.io/reload: "true"
+type: kubernetes.io/tls
+
+---
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $serverCert.certName | trim | lower }}
+  namespace: {{ $relNamespace }}
+spec:
+  secretName: {{ $serverCert.certName | trim | lower }}
+  {{- with $serverCert.additionalOutputFormats }}
+  additionalOutputFormats:
+    {{- range . }}
+    - type: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- with $serverCert.usages }}
+  usages:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  issuerRef:
+    name: {{ $serverCert.certName | trim | lower }}-cert-issuer
+    kind: Issuer
+  commonName: {{ $serverCert.commonName | default $serverCert.certName | trim | lower }}
+  {{- with $serverCert.dnsNames }}
+  dnsNames:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- with $serverCert.ipAddresses }}
+  ipAddresses:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
+
+{{- end }}

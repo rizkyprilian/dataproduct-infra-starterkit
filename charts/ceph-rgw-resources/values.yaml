@@ -1,0 +1,93 @@
+# Ceph RGW Resources Configuration
+# Declaratively manage Ceph RGW buckets and users using Rook
+# Refer to: https://rook.io/docs/rook/latest/
+
+# Storage Class Configuration
+# This should match your Rook Ceph ObjectStore StorageClass
+storageClassName: rook-ceph-bucket
+
+# Object Store Name
+# This should match your CephObjectStore resource name
+objectStoreName: my-store
+
+# Ceph RGW Users
+# Create S3-compatible users with quotas and capabilities
+users: []
+  # - name: app-user
+  #   displayName: "Application User"
+  #   # Optional: Quotas for the user
+  #   quotas:
+  #     maxBuckets: 10
+  #     maxSize: 100G
+  #     maxObjects: 100000
+  #   # Optional: Capabilities (permissions)
+  #   capabilities:
+  #     user: "*"
+  #     bucket: "*"
+  #     # Other options: usage, metadata, zone, roles, info, etc.
+  # 
+  # - name: readonly-user
+  #   displayName: "Read-Only User"
+  #   quotas:
+  #     maxBuckets: 5
+  #     maxSize: 10G
+  #   capabilities:
+  #     bucket: "read"
+
+# Object Bucket Claims (Buckets)
+# Create S3-compatible buckets with optional configurations
+buckets: []
+  # - name: app-data
+  #   # Option 1: Use a specific bucket name
+  #   bucketName: my-app-data-bucket
+  #   
+  #   # Option 2: Generate a bucket name with prefix (recommended)
+  #   # generateBucketName: app-data
+  #   
+  #   # Optional: Additional bucket configuration
+  #   additionalConfig:
+  #     # User quotas (applied to auto-created user)
+  #     maxObjects: "10000"
+  #     maxSize: "10G"
+  #     
+  #     # Bucket-specific quotas
+  #     bucketMaxObjects: "5000"
+  #     bucketMaxSize: "5G"
+  #     
+  #     # Assign bucket to existing user
+  #     # bucketOwner: "app-user"
+  #     
+  #     # S3 Bucket Policy (JSON format)
+  #     # bucketPolicy: |
+  #     #   {
+  #     #     "Version": "2012-10-17",
+  #     #     "Statement": [{
+  #     #       "Effect": "Allow",
+  #     #       "Principal": {"AWS": "arn:aws:iam:::user/app-user"},
+  #     #       "Action": ["s3:GetObject", "s3:ListBucket"],
+  #     #       "Resource": ["arn:aws:s3:::my-bucket/*"]
+  #     #     }]
+  #     #   }
+  #     
+  #     # Lifecycle Policy (JSON format)
+  #     # bucketLifecycle: |
+  #     #   {
+  #     #     "Rules": [{
+  #     #       "ID": "ExpireOldObjects",
+  #     #       "Status": "Enabled",
+  #     #       "Prefix": "",
+  #     #       "Expiration": {"Days": 30}
+  #     #     }]
+  #     #   }
+  # 
+  # - name: backups
+  #   generateBucketName: backups
+  #   additionalConfig:
+  #     maxSize: "100G"
+  #     bucketOwner: "app-user"
+
+# Global Labels
+labels: {}
+
+# Global Annotations
+annotations: {}

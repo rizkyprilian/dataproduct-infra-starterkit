@@ -1,0 +1,50 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+{{- if .Values.globalIssuer.create }}
+
+Global Issuer Created:
+  Name: {{ include "letsencrypt-tls-cert.fullname" . }}-global-issuer
+  Kind: {{ .Values.globalIssuer.kind | default "ClusterIssuer" }}
+  Email: {{ .Values.globalIssuer.email }}
+{{- end }}
+
+{{- if .Values.certificates }}
+
+Certificates Deployed:
+{{- range $i, $cert := .Values.certificates }}
+  {{ add $i 1 }}. {{ $cert.name }}
+     DNS Names:
+     {{- range $cert.dnsNames }}
+       - {{ . }}
+     {{- end }}
+     Secret: {{ $cert.secretName | default $cert.name }}
+     Issuer: {{ $cert.issuer.name }} ({{ $cert.issuer.kind | default "ClusterIssuer" }})
+     {{- if and (hasKey $cert "issuer") (hasKey $cert.issuer "create") $cert.issuer.create }}
+     Status: Issuer will be created
+     {{- else }}
+     Status: Using existing issuer
+     {{- end }}
+{{- end }}
+{{- else }}
+
+No certificates configured. Please update your values.yaml with certificate definitions.
+{{- end }}
+
+To check the status of your certificates:
+
+  kubectl get certificate -n {{ .Release.Namespace }}
+  kubectl describe certificate <certificate-name> -n {{ .Release.Namespace }}
+
+To check the status of issuers:
+
+  kubectl get issuer -n {{ .Release.Namespace }}
+  kubectl get clusterissuer
+
+For troubleshooting, check certificate requests and challenges:
+
+  kubectl get certificaterequest -n {{ .Release.Namespace }}
+  kubectl get challenge -n {{ .Release.Namespace }}
+
+For more information, see the README.md file.

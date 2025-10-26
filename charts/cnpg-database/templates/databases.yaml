@@ -1,0 +1,47 @@
+{{- if .Values.databases }}
+{{- range .Values.databases }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $.Release.Name }}-{{ .name }}
+  labels:
+    {{- include "cnpg-database.labels" $ | nindent 4 }}
+    cnpg.io/cluster: cluster-{{ $.Release.Name }}
+spec:
+  name: {{ .name }}
+  owner: {{ .owner }}
+  {{- if .ensure }}
+  ensure: {{ .ensure }}
+  {{- end }}
+  cluster:
+    name: cluster-{{ $.Release.Name }}
+  {{- if .extensions }}
+  extensions:
+  {{- range .extensions }}
+  - name: {{ .name }}
+    {{- if .ensure }}
+    ensure: {{ .ensure }}
+    {{- end }}
+    {{- if .version }}
+    version: {{ .version | quote }}
+    {{- end }}
+    {{- if .schema }}
+    schema: {{ .schema }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if .schemas }}
+  schemas:
+  {{- range .schemas }}
+  - name: {{ .name }}
+    {{- if .owner }}
+    owner: {{ .owner }}
+    {{- end }}
+    {{- if .ensure }}
+    ensure: {{ .ensure }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

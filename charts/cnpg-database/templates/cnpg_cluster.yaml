@@ -1,0 +1,167 @@
+{{- $rel := .Release }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-{{ .Release.Name }}
+spec:
+  imageName: {{ .Values.imageName | default "ghcr.io/cloudnative-pg/postgresql:16.2-3" }}
+  instances: {{ .Values.instances }}
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: {{ .Values.storage.size }}
+    storageClass: {{ .Values.storage.storageClass }}
+  managed:
+    roles:
+    {{- .Values.dbRoles | toYaml | nindent 4 }}
+  {{- with .Values.resources }}
+  resources:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.bootstrapDB }}
+  bootstrap:
+    {{- if .pg_basebackup }}
+    pg_basebackup:
+      source: {{ .pg_basebackup.source }}
+      {{- with .pg_basebackup.database }}
+      database: {{ . }}
+      {{- end }}
+      {{- with .pg_basebackup.owner }}
+      owner: {{ . }}
+      {{- end }}
+      {{- with .pg_basebackup.secret }}
+      secret:
+        name: {{ .name }}
+      {{- end }}
+    {{- else if .recovery }}
+    recovery:
+      source: {{ .recovery.source | default "origin" }}
+      {{- with .recovery.backup }}
+      backup:
+        name: {{ .name }}
+      {{- end }}
+      {{- with .recovery.recoveryTarget }}
+      recoveryTarget:
+        {{- if .targetTime }}
+        targetTime: {{ .targetTime | quote }}
+        {{- end }}
+        {{- if .targetXID }}
+        targetXID: {{ .targetXID | quote }}
+        {{- end }}
+        {{- if .targetName }}
+        targetName: {{ .targetName | quote }}
+        {{- end }}
+        {{- if .targetLSN }}
+        targetLSN: {{ .targetLSN | quote }}
+        {{- end }}
+        {{- if .targetImmediate }}
+        targetImmediate: {{ .targetImmediate }}
+        {{- end }}
+        {{- if .exclusive }}
+        exclusive: {{ .exclusive }}
+        {{- end }}
+      {{- end }}
+      {{- with .recovery.database }}
+      database: {{ . }}
+      {{- end }}
+      {{- with .recovery.owner }}
+      owner: {{ . }}
+      {{- end }}
+    {{- else }}
+    initdb:
+      database: {{ .database | default "app" }}
+      owner: {{ .dbOwner | default "app" }}
+      encoding: {{ .encoding | default "UTF8" }}
+      localeCollate: {{ .localeCollate | default "en_US.UTF-8" }}
+      dataChecksums: {{ ternary "true" "false" (default true .dataChecksums) }}
+      {{- with .postInitSQL }}
+      postInitApplicationSQLRefs:
+        configMapRefs:
+        {{- range . }}
+        - name: {{ $rel.Name }}-cluster-init-sql-cm
+          key: {{ .key }}
+        {{- end -}}
+      {{- end }}
+    {{- end }}
+  {{- end -}}
+{{- if or (and .Values.serverCerts .Values.serverCerts.enabled) (and .Values.clientCerts .Values.clientCerts.enabled) }}
+  certificates:
+    {{- if and .Values.serverCerts .Values.serverCerts.enabled }}
+    serverTLSSecret: {{ $rel.Name }}-pg-server-cert
+    serverCASecret: {{ $rel.Name }}-pg-server-cert-ca
+    {{- end }}
+    {{- if and .Values.replicationClientCerts .Values.replicationClientCerts.enabled }}
+    clientCASecret: {{ $rel.Name }}-pg-client-replication-cert-ca
+    replicationTLSSecret: {{ $rel.Name }}-pg-client-replication-cert
+    {{- end }}
+{{- end }}
+{{- if .Values.customPgHBA }}
+  postgresql:
+    pg_hba:
+{{- range .Values.customPgHBA }}
+      - {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- if .Values.backup.enabled }}
+  backup:
+    retentionPolicy: {{ .Values.backup.retentionPolicy | default "30d" }}
+{{- if .Values.backup.s3.enabled }}
+    barmanObjectStore:
+      destinationPath: {{ .Values.backup.s3.destinationPath }}
+      endpointURL: {{ .Values.backup.s3.endpointURL }}
+      wal:
+        compression: {{ .Values.backup.s3.walCompression }}
+      data:
+        compression: {{ .Values.backup.s3.dataCompression }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Values.backup.s3.credentials.accessKeyExistingSecret }}
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Values.backup.s3.credentials.secretKeyExistingSecret }}
+          key: ACCESS_SECRET_KEY
+      
+{{- end}}
+{{- if .Values.backup.gcs.enabled }}
+    barmanObjectStore:
+      destinationPath: {{ .Values.backup.gcs.destinationPath }}
+      wal:
+        compression: {{ .Values.backup.gcs.walCompression }}
+      data:
+        compression: {{ .Values.backup.gcs.dataCompression }}
+      googleCredentials:
+        applicationCredentials:
+          name: {{ .Values.backup.gcs.googleCredentialsExistingSecret }}
+          key: gcsCredentials
+{{- end}}
+{{- if .Values.backup.volumeSnapshot.enabled }}
+    volumeSnapshot:
+      className: {{ .Values.backup.volumeSnapshot.className }}
+{{- end}}
+{{- end }}
+{{- with .Values.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- if .Values.externalClusters }}
+  externalClusters:
+  {{- range .Values.externalClusters }}
+  - name: {{ .name }}
+    {{- if .plugin }}
+    plugin:
+      name: {{ .plugin.name }}
+      {{- with .plugin.parameters }}
+      parameters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    {{- if .barmanObjectStore }}
+    barmanObjectStore:
+      {{- toYaml .barmanObjectStore | nindent 6 }}
+    {{- end }}
+    {{- if .connectionParameters }}
+    connectionParameters:
+      {{- toYaml .connectionParameters | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

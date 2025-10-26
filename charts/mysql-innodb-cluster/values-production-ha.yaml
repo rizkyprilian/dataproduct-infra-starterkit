@@ -1,0 +1,99 @@
+# Production High Availability Configuration
+# This example demonstrates a production-ready MySQL InnoDB Cluster with:
+# - 3 MySQL instances for high availability
+# - 2 Router instances for load balancing
+# - Automated daily backups to S3
+# - Pod anti-affinity to spread instances across nodes
+# - Resource limits for production workloads
+
+mysql:
+  instances: 3
+  version: "9.1.0"
+  baseServerId: 1000
+
+router:
+  instances: 2
+  version: "9.1.0"
+
+storage:
+  size: 100Gi
+  storageClass: "fast-ssd"
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    memory: "4Gi"
+    cpu: "2"
+  limits:
+    memory: "8Gi"
+    cpu: "4"
+
+tls:
+  useSelfSigned: true
+
+secretName: mysql-root-secret
+
+mycnf: |
+  [mysqld]
+  max_connections=500
+  innodb_buffer_pool_size=6G
+  innodb_log_file_size=1G
+  innodb_flush_log_at_trx_commit=1
+  sync_binlog=1
+  slow_query_log=1
+  long_query_time=2
+  max_allowed_packet=256M
+
+service:
+  type: ClusterIP
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+backup:
+  enabled: true
+  profiles:
+    - name: daily-full-backup
+      dumpInstance:
+        dumpOptions:
+          threads: 4
+        storage:
+          s3:
+            bucketName: prod-mysql-backups
+            prefix: innodb-cluster
+            endpoint: https://s3.amazonaws.com
+            region: us-east-1
+            credentials: s3-backup-credentials
+  
+  schedules:
+    - name: daily-backup-schedule
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      backupProfileName: daily-full-backup
+      enabled: true
+      deleteBackupData: false
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+affinity:
+  enablePodAntiAffinity: true
+  podAntiAffinityType: required
+  topologyKey: kubernetes.io/hostname
+
+nodeSelector:
+  workload: database
+
+tolerations:
+  - key: "database"
+    operator: "Equal"
+    value: "mysql"
+    effect: "NoSchedule"
+
+labels:
+  environment: production
+  tier: database
+
+annotations:
+  backup.policy: "daily"
+  monitoring: "enabled"

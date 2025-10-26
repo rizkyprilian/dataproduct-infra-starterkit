@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "globalIssuer": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["Issuer", "ClusterIssuer"]
+        },
+        "server": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "privateKeySecretName": {
+          "type": "string"
+        },
+        "solvers": {
+          "type": "array"
+        }
+      },
+      "if": {
+        "properties": {
+          "create": {
+            "const": true
+          }
+        },
+        "required": ["create"]
+      },
+      "then": {
+        "required": ["email", "server"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "server": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "certificates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "dnsNames", "issuer"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dnsNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "secretName": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["Issuer", "ClusterIssuer"]
+              },
+              "create": {
+                "type": "boolean"
+              },
+              "group": {
+                "type": "string"
+              },
+              "acme": {
+                "type": "object",
+                "required": ["email", "server"],
+                "properties": {
+                  "server": {
+                    "type": "string",
+                    "format": "uri",
+                    "minLength": 1
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "minLength": 1
+                  },
+                  "privateKeySecretName": {
+                    "type": "string"
+                  },
+                  "solvers": {
+                    "type": "array"
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "create": {
+                  "const": true
+                }
+              },
+              "required": ["create"]
+            },
+            "then": {
+              "required": ["acme"]
+            }
+          },
+          "duration": {
+            "type": "string"
+          },
+          "renewBefore": {
+            "type": "string"
+          },
+          "commonName": {
+            "type": "string"
+          },
+          "ipAddresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isCA": {
+            "type": "boolean"
+          },
+          "additionalOutputFormats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

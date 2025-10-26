@@ -1,0 +1,33 @@
+# Test values for validating the chart templates
+certificates:
+  - name: test-cert-1
+    dnsNames:
+      - test1.example.com
+      - www.test1.example.com
+    secretName: test1-tls
+    issuer:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+    usages:
+      - digital signature
+      - key encipherment
+  
+  - name: test-cert-2
+    dnsNames:
+      - test2.example.com
+    secretName: test2-tls
+    issuer:
+      name: test-issuer
+      kind: Issuer
+      create: true
+      acme:
+        server: https://acme-staging-v02.api.letsencrypt.org/directory
+        email: test@example.com
+        privateKeySecretName: test-issuer-key
+        solvers:
+          - http01:
+              ingress:
+                class: nginx
+    duration: 2160h
+    renewBefore: 720h
+    commonName: test2.example.com

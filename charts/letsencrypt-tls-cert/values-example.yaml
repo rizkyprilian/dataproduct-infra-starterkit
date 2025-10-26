@@ -1,0 +1,121 @@
+# Example values file for letsencrypt-tls-cert
+# This file demonstrates various configuration scenarios
+
+# Example 1: Using existing ClusterIssuer
+# Assumes you already have a ClusterIssuer named "letsencrypt-prod" in your cluster
+certificates:
+  - name: example-com-cert
+    dnsNames:
+      - example.com
+      - www.example.com
+    secretName: example-com-tls
+    issuer:
+      name: letsencrypt-prod
+      kind: ClusterIssuer
+    usages:
+      - digital signature
+      - key encipherment
+
+# Example 2: Create a new Issuer with HTTP-01 challenge
+#certificates:
+#  - name: app-cert
+#    dnsNames:
+#      - app.example.com
+#    secretName: app-tls
+#    issuer:
+#      name: app-letsencrypt
+#      kind: Issuer
+#      create: true
+#      acme:
+#        server: https://acme-v02.api.letsencrypt.org/directory
+#        email: admin@example.com
+#        privateKeySecretName: app-letsencrypt-key
+#        solvers:
+#          - http01:
+#              ingress:
+#                class: nginx
+
+# Example 3: Create ClusterIssuer with DNS-01 challenge for wildcard cert
+#certificates:
+#  - name: wildcard-cert
+#    dnsNames:
+#      - "*.example.com"
+#      - example.com
+#    secretName: wildcard-tls
+#    issuer:
+#      name: letsencrypt-dns
+#      kind: ClusterIssuer
+#      create: true
+#      acme:
+#        server: https://acme-v02.api.letsencrypt.org/directory
+#        email: admin@example.com
+#        privateKeySecretName: letsencrypt-dns-key
+#        solvers:
+#          - dns01:
+#              cloudflare:
+#                email: admin@example.com
+#                apiTokenSecretRef:
+#                  name: cloudflare-api-token
+#                  key: api-token
+
+# Example 4: Multiple certificates with different configurations
+#certificates:
+#  # Production certificate using existing ClusterIssuer
+#  - name: web-prod-cert
+#    dnsNames:
+#      - web.example.com
+#    secretName: web-prod-tls
+#    issuer:
+#      name: letsencrypt-prod
+#      kind: ClusterIssuer
+#    duration: 2160h  # 90 days
+#    renewBefore: 720h  # 30 days
+#    usages:
+#      - digital signature
+#      - key encipherment
+#  
+#  # Staging certificate with its own Issuer
+#  - name: api-staging-cert
+#    dnsNames:
+#      - api-staging.example.com
+#    secretName: api-staging-tls
+#    commonName: api-staging.example.com
+#    issuer:
+#      name: api-staging-issuer
+#      kind: Issuer
+#      create: true
+#      acme:
+#        server: https://acme-staging-v02.api.letsencrypt.org/directory
+#        email: devops@example.com
+#        privateKeySecretName: api-staging-key
+#        solvers:
+#          - http01:
+#              ingress:
+#                class: nginx
+
+# Example 5: Using global issuer for all certificates
+#globalIssuer:
+#  create: true
+#  kind: ClusterIssuer
+#  server: https://acme-v02.api.letsencrypt.org/directory
+#  email: admin@example.com
+#  privateKeySecretName: global-letsencrypt-key
+#  solvers:
+#    - http01:
+#        ingress:
+#          class: nginx
+#
+#certificates:
+#  - name: site1-cert
+#    dnsNames:
+#      - site1.example.com
+#    issuer:
+#      name: letsencrypt-tls-cert-global-issuer
+#      kind: ClusterIssuer
+#  
+#  - name: site2-cert
+#    dnsNames:
+#      - site2.example.com
+#    issuer:
+#      name: letsencrypt-tls-cert-global-issuer
+#      kind: ClusterIssuer

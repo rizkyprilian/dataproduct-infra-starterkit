@@ -1,0 +1,208 @@
+# MySQL InnoDB Cluster Configuration
+# Refer to: https://dev.mysql.com/doc/mysql-operator/en/
+
+# Cluster name (will be prefixed with release name)
+# clusterName: mycluster
+
+# MySQL Server Configuration
+mysql:
+  # Number of MySQL instances in the cluster (minimum 3 for HA)
+  instances: 3
+  
+  # MySQL version to deploy
+  # Refer to: https://hub.docker.com/r/mysql/mysql-server/tags or container.oracle.com
+  version: "9.1.0"
+  
+  # Base server ID for the cluster instances
+  # Each instance will get baseServerId + instance_number
+  baseServerId: 1000
+
+# MySQL Router Configuration
+router:
+  # Number of Router instances
+  instances: 1
+  
+  # MySQL Router version (usually same as MySQL version)
+  version: "9.1.0"
+
+# Storage Configuration
+storage:
+  # Size of the persistent volume for each MySQL instance
+  size: 20Gi
+  
+  # Storage class name for persistent volumes
+  storageClass: "standard"
+  
+  # Access modes for the persistent volume
+  accessModes:
+    - ReadWriteOnce
+
+# Resource Limits and Requests
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "2Gi"
+    cpu: "2"
+
+# TLS/SSL Configuration
+tls:
+  # Use self-signed certificates (set to false if using custom certs)
+  useSelfSigned: true
+  
+  # Custom TLS secret (if useSelfSigned is false)
+  # tlsSecret: my-tls-secret
+  
+  # CA secret for custom certificates
+  # tlsCASecret: my-ca-secret
+
+# Server TLS Certificates from Vault
+# Uses cert-manager with Vault issuer to generate TLS certificates
+# Compatible with the same Vault PKI setup as PostgreSQL (cnpg-database chart)
+serverCerts:
+  enabled: false
+  commonName: mysql-cluster-primary
+  # DNS names for the certificate (SANs)
+  dnsNames:
+    - mysql.prod.db.example.com
+    - mysql-ro.prod.db.example.com
+    - my-mysql-cluster
+    - my-mysql-cluster.default
+    - my-mysql-cluster.default.svc
+    - my-mysql-cluster.default.svc.cluster.local
+  # Vault issuer configuration
+  issuer:
+    vaultPath: pki_int_dev_db/sign/mysql-role
+    vaultServer: https://vault.example.com
+    kubernetesAuth:
+      role: mysql-cert-issuer
+      mountPath: /v1/auth/kubernetes
+
+# MySQL Root User Secret
+# Create this secret before deploying the chart:
+# kubectl create secret generic mysql-root-secret \
+#   --from-literal=rootUser=root \
+#   --from-literal=rootHost=% \
+#   --from-literal=rootPassword=your-secure-password
+secretName: mysql-root-secret
+
+# Custom MySQL Configuration (my.cnf)
+# Add custom configuration options to my.cnf
+mycnf: |
+  [mysqld]
+  max_connections=200
+  innodb_buffer_pool_size=1G
+
+# Service Configuration
+service:
+  # Service type (ClusterIP, NodePort, LoadBalancer)
+  type: ClusterIP
+  
+  # Annotations for the service
+  annotations: {}
+  
+  # Labels for the service
+  labels: {}
+
+# Backup Configuration
+backup:
+  enabled: false
+  
+  # Backup Profiles
+  # Define reusable backup profiles
+  profiles: []
+    # - name: daily-backup
+    #   dumpInstance:
+    #     dumpOptions:
+    #       excludeTables: []
+    #       # threads: 4
+    #     storage:
+    #       # Option 1: PersistentVolumeClaim
+    #       persistentVolumeClaim:
+    #         claimName: mysql-backup-pvc
+    #       
+    #       # Option 2: OCI Object Storage
+    #       # ociObjectStorage:
+    #       #   prefix: mysql-backups
+    #       #   bucketName: my-backup-bucket
+    #       #   credentials: oci-backup-credentials
+    #       
+    #       # Option 3: S3-compatible storage (MySQL Operator 9.1.0+)
+    #       # s3:
+    #       #   bucketName: my-s3-bucket
+    #       #   prefix: mysql-backups
+    #       #   endpoint: https://s3.amazonaws.com
+    #       #   region: us-east-1
+    #       #   credentials: s3-backup-credentials
+  
+  # Backup Schedules
+  # Schedule automated backups using cron expressions
+  schedules: []
+    # - name: daily-backup-schedule
+    #   schedule: "0 2 * * *"  # Daily at 2 AM
+    #   backupProfileName: daily-backup
+    #   enabled: true
+    #   deleteBackupData: false  # Keep backup data after job completion
+
+# Initialize Database from Clone or Dump
+initDB:
+  enabled: false
+  
+  # Option 1: Clone from another MySQL instance
+  # clone:
+  #   donorUrl: source-cluster-0.source-cluster-instances.default.svc.cluster.local:3306
+  #   rootUser: root
+  #   secretKeyRef:
+  #     name: source-mysql-root-secret
+  
+  # Option 2: Restore from dump
+  # dump:
+  #   name: my-dump-name
+  #   storage:
+  #     ociObjectStorage:
+  #       prefix: dump-20240101-120000
+  #       bucketName: my-backup-bucket
+  #       credentials: oci-restore-credentials
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Affinity and Anti-Affinity
+affinity:
+  # Enable pod anti-affinity to spread instances across nodes
+  enablePodAntiAffinity: true
+  
+  # Anti-affinity type: preferred or required
+  podAntiAffinityType: preferred
+  
+  # Topology key for anti-affinity
+  topologyKey: kubernetes.io/hostname
+
+# Node Selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Additional Labels
+labels: {}
+
+# Additional Annotations
+annotations: {}
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Image Pull Secrets
+imagePullSecrets: []
+  # - name: my-registry-secret

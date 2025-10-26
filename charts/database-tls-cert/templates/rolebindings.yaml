@@ -1,0 +1,49 @@
+{{- $relNamespace := .Release.Namespace -}}
+{{- $clusterCertManagerName := .Values.clusterCertManager.serviceAccountName | default "cert-manager" -}}
+{{- $clusterCertManagerNamespace := .Values.clusterCertManager.namespace | default "cert-manager" -}}
+{{- range $i, $serverCert := .Values.dbServerTLSCertIssuers }}
+
+---
+# Use the Vault Client's JWT as the Reviewer JWT
+# https://developer.hashicorp.com/vault/docs/auth/kubernetes#use-the-vault-client-s-jwt-as-the-reviewer-jwt
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+   name: {{ $serverCert.certName | trim | lower }}-issuer-tokenreview
+roleRef:
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+   name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: {{ $serverCert.serviceAccountName | default $serverCert.certName | trim | lower }}
+  namespace: {{ $relNamespace }}
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $serverCert.certName | trim | lower }}-cert-issuer
+  namespace: {{ $relNamespace }}
+rules:
+  - apiGroups: ['']
+    resources: ['serviceaccounts/token']
+    resourceNames: ["{{ $serverCert.serviceAccountName | default $serverCert.certName | trim | lower }}"]
+    verbs: ['create']
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $serverCert.certName | trim | lower }}-cert-issuer
+  namespace: {{ $relNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $clusterCertManagerName }}
+    namespace: {{ $clusterCertManagerNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $serverCert.certName | trim | lower }}-cert-issuer
+
+{{- end }}

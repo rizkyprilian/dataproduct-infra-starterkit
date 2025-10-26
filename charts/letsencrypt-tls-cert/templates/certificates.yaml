@@ -1,0 +1,74 @@
+{{- $relNamespace := .Release.Namespace -}}
+{{- range $i, $cert := .Values.certificates }}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $cert.name | trim | lower }}
+  namespace: {{ $relNamespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    helm.sh/chart: {{ include "letsencrypt-tls-cert.chart" $ }}
+spec:
+  secretName: {{ $cert.secretName | default ($cert.name | trim | lower) }}
+  
+  {{- if $cert.duration }}
+  duration: {{ $cert.duration }}
+  {{- end }}
+  
+  {{- if $cert.renewBefore }}
+  renewBefore: {{ $cert.renewBefore }}
+  {{- end }}
+  
+  {{- if $cert.isCA }}
+  isCA: {{ $cert.isCA }}
+  {{- end }}
+  
+  {{- with $cert.commonName }}
+  commonName: {{ . }}
+  {{- end }}
+  
+  {{- with $cert.dnsNames }}
+  dnsNames:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
+  {{- with $cert.ipAddresses }}
+  ipAddresses:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
+  {{- with $cert.uris }}
+  uris:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
+  {{- with $cert.usages }}
+  usages:
+    {{- range . }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
+  {{- with $cert.additionalOutputFormats }}
+  additionalOutputFormats:
+    {{- range . }}
+    - type: {{ .type }}
+    {{- end }}
+  {{- end }}
+  
+  issuerRef:
+    name: {{ $cert.issuer.name | required (printf "certificates[%d].issuer.name is required" $i) | trim | lower }}
+    kind: {{ $cert.issuer.kind | default "ClusterIssuer" }}
+    {{- if hasKey $cert.issuer "group" }}
+    group: {{ $cert.issuer.group }}
+    {{- end }}
+
+{{- end }}

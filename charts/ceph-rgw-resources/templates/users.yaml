@@ -1,0 +1,37 @@
+{{- if .Values.users }}
+{{- range .Values.users }}
+---
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ceph-rgw-resources.labels" $ | nindent 4 }}
+  {{- with $.Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  store: {{ $.Values.objectStoreName }}
+  {{- if .displayName }}
+  displayName: {{ .displayName }}
+  {{- end }}
+  {{- if .quotas }}
+  quotas:
+    {{- if .quotas.maxBuckets }}
+    maxBuckets: {{ .quotas.maxBuckets }}
+    {{- end }}
+    {{- if .quotas.maxSize }}
+    maxSize: {{ .quotas.maxSize }}
+    {{- end }}
+    {{- if .quotas.maxObjects }}
+    maxObjects: {{ .quotas.maxObjects }}
+    {{- end }}
+  {{- end }}
+  {{- if .capabilities }}
+  capabilities:
+    {{- toYaml .capabilities | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,81 @@
+# Default values for letsencrypt-tls-cert.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Global issuer configuration (optional)
+# If you want to create issuers for all certificates
+globalIssuer:
+  # Set to true to create issuers/clusterissuers
+  create: false
+  # Kind of issuer: Issuer or ClusterIssuer
+  kind: ClusterIssuer
+  # ACME server URL
+  server: https://acme-v02.api.letsencrypt.org/directory
+  # Email for Let's Encrypt notifications
+  email: ""
+  # Private key secret name for ACME account
+  privateKeySecretName: letsencrypt-account-key
+  # Solvers configuration for ACME challenge
+  solvers: []
+  # Example solvers:
+  # - http01:
+  #     ingress:
+  #       class: nginx
+  # - dns01:
+  #     cloudflare:
+  #       email: user@example.com
+  #       apiTokenSecretRef:
+  #         name: cloudflare-api-token
+  #         key: api-token
+
+# Array of certificates to create
+certificates: []
+# Example certificate configurations:
+# - name: example-com-cert
+#   # DNS names/domains for the certificate
+#   dnsNames:
+#     - example.com
+#     - www.example.com
+#   # Secret name to store the certificate (defaults to certificate name)
+#   secretName: example-com-tls
+#   # Issuer configuration
+#   issuer:
+#     # Name of the issuer to use
+#     name: letsencrypt-prod
+#     # Kind: Issuer or ClusterIssuer
+#     kind: ClusterIssuer
+#     # Set to true to create this issuer (only for kind: Issuer)
+#     create: false
+#     # ACME configuration (only if create: true)
+#     acme:
+#       server: https://acme-v02.api.letsencrypt.org/directory
+#       email: admin@example.com
+#       privateKeySecretName: letsencrypt-prod-key
+#       solvers:
+#         - http01:
+#             ingress:
+#               class: nginx
+#   # Optional: Certificate duration (default: 2160h = 90 days)
+#   duration: 2160h
+#   # Optional: Renew before (default: 720h = 30 days)
+#   renewBefore: 720h
+#   # Optional: Common name
+#   commonName: example.com
+#   # Optional: Subject Alternative Names
+#   # ipAddresses:
+#   #   - 192.168.1.1
+#   # uris:
+#   #   - spiffe://cluster.local/ns/sandbox/sa/example
+#   # Optional: Usages
+#   usages:
+#     - digital signature
+#     - key encipherment
+#   # Optional: Is CA certificate
+#   isCA: false
+#   # Optional: Additional output formats
+#   # additionalOutputFormats:
+#   #   - type: CombinedPEM
+#   #   - type: DER
