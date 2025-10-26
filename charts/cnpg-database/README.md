@@ -628,3 +628,8 @@ For issues and questions:
 - **Chart Version**: 0.3.0
 - **PostgreSQL Version**: 16.2-3 (default)
 - **CloudNativePG Operator**: Compatible with v1.20+
+
+## Maintainer
+
+- **Maintainer**: Rizky Prilian
+- **Email**: rizky.prilian@company.com
