@@ -1,0 +1,97 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+      - 'helm-image/Dockerfile'
+  pull_request:
+    branches:
+      - main
+
+env:
+  CHARTS_DIR: "charts"
+  PACKAGE_PATH: "packages"
+  DOCKER_USERNAME: rprilian
+  HELM_IMAGE: docker.io/rprilian/helm-image:latest
+
+jobs:
+  build_helm_image:
+    name: Build Helm Image
+    runs-on: ubuntu-latest
+    # Only run when Dockerfile changes
+    if: contains(github.event.head_commit.modified, 'helm-image/Dockerfile') || contains(github.event.head_commit.added, 'helm-image/Dockerfile')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Helm image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./helm-image/Dockerfile
+          push: true
+          tags: ${{ env.HELM_IMAGE }}
+          cache-from: type=registry,ref=${{ env.HELM_IMAGE }}
+          cache-to: type=inline
+
+  build_and_deploy_charts:
+    name: Build and Deploy Helm Charts
+    runs-on: ubuntu-latest
+    needs: build_helm_image
+    if: |
+      always() && 
+      github.ref == 'refs/heads/main' &&
+      (needs.build_helm_image.result == 'success' || needs.build_helm_image.result == 'skipped')
+    
+    container:
+      image: docker.io/rprilian/helm-image:latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package Helm charts
+        run: |
+          mkdir -p ${PACKAGE_PATH}
+          for dir in ${CHARTS_DIR}/*; do
+            if [ -d "$dir" ]; then
+              CHART_NAME=$(basename $dir)
+              echo "Packaging chart: $CHART_NAME"
+              helm package $dir --destination ${PACKAGE_PATH}
+            fi
+          done
+
+      - name: Upload charts as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-charts
+          path: ${{ env.PACKAGE_PATH }}/*.tgz
+          retention-days: 30
+
+      - name: Deploy to GitHub Packages (OCI)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GITHUB_TOKEN" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          for chart in ${PACKAGE_PATH}/*.tgz; do
+            if [ -f "$chart" ]; then
+              CHART_NAME=$(basename "$chart" .tgz | sed 's/-[0-9].*//')
+              echo "Uploading $chart to ghcr.io/${{ github.repository_owner }}/${CHART_NAME}..."
+              helm push "$chart" oci://ghcr.io/${{ github.repository_owner }}
+              echo "Done"
+            fi
+          done
