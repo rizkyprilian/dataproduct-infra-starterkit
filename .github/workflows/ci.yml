@@ -11,6 +11,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   CHARTS_DIR: "charts"
   PACKAGE_PATH: "packages"
