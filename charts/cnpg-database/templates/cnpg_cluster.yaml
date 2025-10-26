@@ -14,6 +14,24 @@ spec:
   managed:
     roles:
     {{- .Values.dbRoles | toYaml | nindent 4 }}
+    {{- if .Values.managedServices }}
+    services:
+      {{- if .Values.managedServices.disabledDefaultServices }}
+      disabledDefaultServices:
+      {{- .Values.managedServices.disabledDefaultServices | toYaml | nindent 6 }}
+      {{- end }}
+      {{- if .Values.managedServices.additional }}
+      additional:
+      {{- range .Values.managedServices.additional }}
+      - selectorType: {{ .selectorType }}
+        {{- if .updateStrategy }}
+        updateStrategy: {{ .updateStrategy }}
+        {{- end }}
+        serviceTemplate:
+          {{- .serviceTemplate | toYaml | nindent 10 }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
   {{- with .Values.resources }}
   resources:
   {{- toYaml . | nindent 4 }}

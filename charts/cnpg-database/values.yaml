@@ -264,6 +264,52 @@ affinity:
   topologyKey: kubernetes.io/hostname #defaul value
   podAntiAffinityType: preferred #default value
 
+# Managed Services Configuration
+# Refer to: https://cloudnative-pg.io/documentation/1.27/service_management/
+managedServices:
+  # Disable default services (ro, r). The rw service cannot be disabled.
+  disabledDefaultServices: []
+    # - "ro"  # Read-only service
+    # - "r"   # Read service
+  
+  # Additional custom services
+  # Each service can be configured with a selector type (rw, ro, r) and a service template
+  additional: []
+    # Example: LoadBalancer service for primary (read-write) instance
+    # - selectorType: rw
+    #   updateStrategy: patch  # Options: patch (default) or replace
+    #   serviceTemplate:
+    #     metadata:
+    #       name: "{{ .Release.Name }}-lb"
+    #       labels:
+    #         app: postgres
+    #         type: loadbalancer
+    #       annotations:
+    #         service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    #     spec:
+    #       type: LoadBalancer
+    #       ports:
+    #       - name: postgres
+    #         port: 5432
+    #         targetPort: 5432
+    #         protocol: TCP
+    #
+    # Example: LoadBalancer service for read-only replicas
+    # - selectorType: ro
+    #   serviceTemplate:
+    #     metadata:
+    #       name: "{{ .Release.Name }}-ro-lb"
+    #       labels:
+    #         app: postgres
+    #         type: loadbalancer
+    #     spec:
+    #       type: LoadBalancer
+    #       ports:
+    #       - name: postgres
+    #         port: 5432
+    #         targetPort: 5432
+    #         protocol: TCP
+
 backup:
   enabled: true
   # if using object store, choose either s3 or gcs. cannot be both

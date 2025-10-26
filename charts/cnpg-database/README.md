@@ -365,6 +365,74 @@ customPgHBA:
   - hostssl all all 0.0.0.0/0 cert
 ```
 
+### Managed Services
+
+Configure custom services for exposing PostgreSQL outside the cluster. This feature allows you to add LoadBalancer, NodePort, or other service types as described in the [CloudNativePG Service Management Documentation](https://cloudnative-pg.io/documentation/1.27/service_management/).
+
+#### Add LoadBalancer Service
+
+```yaml
+managedServices:
+  # Optional: Disable default services (ro, r)
+  # The rw service cannot be disabled as it's essential
+  disabledDefaultServices: []
+  
+  # Add custom services
+  additional:
+    # LoadBalancer for primary (read-write) instance
+    - selectorType: rw
+      updateStrategy: patch  # Options: patch (default) or replace
+      serviceTemplate:
+        metadata:
+          name: "mydb-lb"
+          labels:
+            app: postgres
+            type: loadbalancer
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+        spec:
+          type: LoadBalancer
+          ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+            protocol: TCP
+    
+    # LoadBalancer for read-only replicas
+    - selectorType: ro
+      serviceTemplate:
+        metadata:
+          name: "mydb-ro-lb"
+          labels:
+            app: postgres
+            type: loadbalancer
+        spec:
+          type: LoadBalancer
+          ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+            protocol: TCP
+```
+
+**Selector Types:**
+- `rw`: Read-write service (primary instance)
+- `ro`: Read-only service (replicas only)
+- `r`: Read service (all instances)
+
+**Update Strategies:**
+- `patch`: (Default) Apply changes directly to the service
+- `replace`: Delete and recreate the service (may cause disruption)
+
+**Important Notes:**
+- Service names must be unique in the namespace
+- Cannot use reserved names following `<CLUSTER_NAME>-<SERVICE_NAME>` pattern
+- The `selector` field is managed by the operator
+- Consider security implications when exposing databases externally
+
+See [values-loadbalancer-example.yaml](./values-loadbalancer-example.yaml) for a complete example.
+
 ## Usage Examples
 
 ### Example 1: Simple Development Database

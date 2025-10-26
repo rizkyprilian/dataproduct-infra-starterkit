@@ -1,0 +1,88 @@
+# Example configuration for adding LoadBalancer services to CloudNativePG cluster
+# This demonstrates how to add custom services as described in:
+# https://cloudnative-pg.io/documentation/1.27/service_management/
+
+# Managed Services Configuration
+managedServices:
+  # Optional: Disable default services if not needed
+  # The rw (read-write) service cannot be disabled as it's essential for replication
+  disabledDefaultServices: []
+    # - "ro"  # Disable read-only service
+    # - "r"   # Disable read service
+  
+  # Additional custom services
+  additional:
+    # LoadBalancer service for primary (read-write) instance
+    - selectorType: rw
+      updateStrategy: patch  # Options: patch (default) or replace
+      serviceTemplate:
+        metadata:
+          name: "mydb-lb"
+          labels:
+            app: postgres
+            type: loadbalancer
+            environment: production
+          annotations:
+            # AWS NLB example
+            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+            # GCP example (uncomment if using GCP)
+            # cloud.google.com/load-balancer-type: "Internal"
+            # Azure example (uncomment if using Azure)
+            # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+        spec:
+          type: LoadBalancer
+          # Optional: Specify loadBalancerIP for static IP
+          # loadBalancerIP: "10.0.0.100"
+          ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+            protocol: TCP
+          # Optional: Restrict source IP ranges
+          # loadBalancerSourceRanges:
+          # - "10.0.0.0/8"
+          # - "172.16.0.0/12"
+    
+    # LoadBalancer service for read-only replicas
+    - selectorType: ro
+      updateStrategy: patch
+      serviceTemplate:
+        metadata:
+          name: "mydb-ro-lb"
+          labels:
+            app: postgres
+            type: loadbalancer
+            environment: production
+            role: readonly
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+        spec:
+          type: LoadBalancer
+          ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+            protocol: TCP
+          sessionAffinity: ClientIP  # Optional: Enable session affinity
+          sessionAffinityConfig:
+            clientIP:
+              timeoutSeconds: 10800  # 3 hours
+
+# Other common configurations remain the same
+instances: 3
+
+imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
+
+storage:
+  size: 10Gi
+  storageClass: "ceph-blockpool-ssd-erasurecoded"
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "2Gi"
+    cpu: "2"
