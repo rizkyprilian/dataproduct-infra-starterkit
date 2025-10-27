@@ -8,6 +8,15 @@ spec:
   imageName: {{ .Values.imageName | default "ghcr.io/cloudnative-pg/postgresql:16.2-3" }}
   instances: {{ .Values.instances }}
   primaryUpdateStrategy: unsupervised
+  {{- if .Values.superuser }}
+  {{- if .Values.superuser.enableSuperuserAccess }}
+  enableSuperuserAccess: {{ .Values.superuser.enableSuperuserAccess }}
+  {{- end }}
+  {{- if and .Values.superuser.secret .Values.superuser.secret.name }}
+  superuserSecret:
+    name: {{ .Values.superuser.secret.name }}
+  {{- end }}
+  {{- end }}
   storage:
     size: {{ .Values.storage.size }}
     storageClass: {{ .Values.storage.storageClass }}

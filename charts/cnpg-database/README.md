@@ -62,13 +62,13 @@ The charts are automatically published to GitHub Container Registry on every pus
 #### 1. Pull the chart
 
 ```bash
-helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.3.0
+helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.4.0
 ```
 
 #### 2. Extract the chart
 
 ```bash
-tar -xzf cnpg-database-0.3.0.tgz
+tar -xzf cnpg-database-0.4.0.tgz
 ```
 
 #### 3. Customize values
@@ -124,6 +124,51 @@ The following table lists the key configurable parameters:
 | `resources.requests.cpu` | CPU request | `100m` |
 | `resources.limits.memory` | Memory limit | `1Gi` |
 | `resources.limits.cpu` | CPU limit | `1` |
+
+### Superuser Configuration
+
+Control PostgreSQL superuser (postgres user) access and password management:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `superuser.enableSuperuserAccess` | Enable superuser access | `false` |
+| `superuser.secret.name` | Name of secret containing superuser password | `""` (auto-generated) |
+
+#### Important Notes
+
+- When `enableSuperuserAccess` is `false` (default), the postgres user password is set to NULL for security
+- When `enableSuperuserAccess` is `true` and no secret is specified, CNPG automatically creates a secret with a random password
+- When `enableSuperuserAccess` is `true` and a secret is specified, CNPG uses that secret to set the postgres user password
+
+#### Example: Enable superuser with auto-generated password
+
+```yaml
+superuser:
+  enableSuperuserAccess: true
+```
+
+The operator will create a secret named `cluster-<release-name>-superuser` with a random password.
+
+#### Example: Enable superuser with custom password
+
+First, create a secret with the password:
+
+```bash
+kubectl create secret generic postgres-superuser-secret \
+  --from-literal=password='your-secure-password' \
+  -n database-namespace
+```
+
+Then configure the chart:
+
+```yaml
+superuser:
+  enableSuperuserAccess: true
+  secret:
+    name: postgres-superuser-secret
+```
+
+For more details, see the [CNPG documentation](https://cloudnative-pg.io/documentation/1.27/cloudnative-pg.v1/#postgresql-cnpg-io-v1-ClusterSpec).
 
 ### Bootstrap Methods
 

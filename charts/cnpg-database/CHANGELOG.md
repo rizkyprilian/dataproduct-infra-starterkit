@@ -2,6 +2,31 @@
 
 All notable changes to the cnpg-database Helm chart will be documented in this file.
 
+## [0.4.0] - 2024-10-27
+
+### Added
+- **Superuser Password Management**: Added support for configuring PostgreSQL superuser (postgres user) password
+  - New `superuser.enableSuperuserAccess` parameter to control superuser access (default: `false`)
+  - New `superuser.secret.name` parameter to specify custom superuser password secret
+  - When `enableSuperuserAccess` is `false`, postgres user password is set to NULL for security
+  - When `enableSuperuserAccess` is `true` without a secret, CNPG auto-generates a random password
+  - When `enableSuperuserAccess` is `true` with a secret, CNPG uses the provided password
+  - Comprehensive documentation in README.md with usage examples
+  - Follows CloudNativePG 1.27 ClusterSpec specification
+
+### Changed
+- Updated `cnpg_cluster.yaml` template to include `superuserSecret` and `enableSuperuserAccess` fields
+- Bumped chart version from 0.3.0 to 0.4.0 (minor version bump for new feature)
+- Enhanced README.md with dedicated section on superuser configuration
+- Added inline documentation in `values.yaml` with detailed examples and security notes
+
+### Technical Details
+- Implements CNPG's `superuserSecret` field from ClusterSpec
+- Supports both auto-generated and user-provided superuser secrets
+- Secret must contain a `password` key
+- Template conditionally renders superuser configuration based on values
+- Maintains backward compatibility (superuser access disabled by default)
+
 ## [0.3.0] - 2024-10-26
 
 ### Added

@@ -5,6 +5,22 @@ instances: 1
 # Refer to https://github.com/cloudnative-pg/postgres-containers/pkgs/container/postgresql/versions?filters%5Bversion_type%5D=tagged
 imageName: ghcr.io/cloudnative-pg/postgresql:16.2-3
 
+# Superuser Configuration
+# Refer to: https://cloudnative-pg.io/documentation/1.27/cloudnative-pg.v1/#postgresql-cnpg-io-v1-ClusterSpec
+superuser:
+  # Enable superuser access (default: false)
+  # When enabled, the operator will use the superuserSecret to update the postgres user password
+  # When disabled, the operator will blank the password of the postgres user by setting it to NULL
+  enableSuperuserAccess: false
+  
+  # Secret containing the superuser password
+  # If not defined and enableSuperuserAccess is true, a new secret will be created with a randomly generated password
+  # The secret should contain a 'password' key
+  secret:
+    name: ""  # Name of the existing secret (leave empty to auto-generate)
+    # Example:
+    # name: postgres-superuser-secret
+
 # Set Storage Size and Storage Class
 storage:
   size: 1Gi
