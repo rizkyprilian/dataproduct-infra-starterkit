@@ -10,4 +10,5 @@ RUN curl -fsSL -o /usr/local/bin/kubectl \
  && chmod +x /usr/local/bin/kubectl
 
 # Add concat script
+# ignore this line
 ENTRYPOINT ["/bin/bash"]
