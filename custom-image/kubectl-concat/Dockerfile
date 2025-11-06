@@ -9,4 +9,5 @@ RUN curl -fsSL -o /usr/local/bin/kubectl \
     https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl \
  && chmod +x /usr/local/bin/kubectl
 
-ENTRYPOINT ["/bin/bash", "/scripts/watch-and-sync.sh"]
+# Add concat script
+ENTRYPOINT ["/bin/bash"]
