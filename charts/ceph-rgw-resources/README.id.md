@@ -59,6 +59,16 @@ helm install my-rgw-resources . -f values.yaml -n rook-ceph
 
 ## Konfigurasi
 
+### Konfigurasi Dasar
+
+| Parameter | Deskripsi | Default |
+|-----------|-----------|---------|
+| `storageClassName` | StorageClass untuk object storage | `rook-ceph-bucket` |
+| `objectStoreName` | Nama CephObjectStore | `my-store` |
+| `clusterNamespace` | Namespace tempat Ceph cluster berjalan | `rook-ceph` |
+| `users` | List user yang akan dibuat | `[]` |
+| `buckets` | List bucket yang akan dibuat | `[]` |
+
 ### Membuat Users
 
 ```yaml

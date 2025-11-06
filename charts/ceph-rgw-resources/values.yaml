@@ -10,6 +10,10 @@ storageClassName: rook-ceph-bucket
 # This should match your CephObjectStore resource name
 objectStoreName: my-store
 
+# Cluster Namespace
+# The namespace where the Ceph cluster is running
+clusterNamespace: rook-ceph
+
 # Ceph RGW Users
 # Create S3-compatible users with quotas and capabilities
 users: []

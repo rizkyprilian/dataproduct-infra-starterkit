@@ -70,6 +70,7 @@ helm install my-rgw-resources . -f values.yaml -n rook-ceph
 |-----------|-------------|---------|
 | `storageClassName` | StorageClass for object storage | `rook-ceph-bucket` |
 | `objectStoreName` | Name of the CephObjectStore | `my-store` |
+| `clusterNamespace` | Namespace where the Ceph cluster is running | `rook-ceph` |
 | `users` | List of users to create | `[]` |
 | `buckets` | List of buckets to create | `[]` |
 
@@ -152,6 +153,7 @@ buckets:
 ```yaml
 objectStoreName: my-store
 storageClassName: rook-ceph-bucket
+clusterNamespace: rook-ceph
 
 users:
   - name: myapp-user
