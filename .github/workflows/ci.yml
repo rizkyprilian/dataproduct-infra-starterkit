@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'charts/**'
-      - 'helm-image/Dockerfile'
+      - 'custom-image/**/Dockerfile'
   pull_request:
     branches:
       - main
@@ -18,15 +18,17 @@ permissions:
 env:
   CHARTS_DIR: "charts"
   PACKAGE_PATH: "packages"
+  CUSTOM_IMAGE_DIR: "custom-image"
   DOCKER_USERNAME: rprilian
+  DOCKER_REGISTRY: docker.io
   HELM_IMAGE: docker.io/rprilian/helm-image:latest
 
 jobs:
-  build_helm_image:
-    name: Build Helm Image
+  build_custom_images:
+    name: Build Custom Images
     runs-on: ubuntu-latest
-    # Only run when Dockerfile changes
-    if: contains(github.event.head_commit.modified, 'helm-image/Dockerfile') || contains(github.event.head_commit.added, 'helm-image/Dockerfile')
+    # Only run when Dockerfiles in custom-image change
+    if: contains(github.event.head_commit.modified, 'custom-image/') || contains(github.event.head_commit.added, 'custom-image/')
     
     steps:
       - name: Checkout code
@@ -41,24 +43,32 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Helm image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./helm-image/Dockerfile
-          push: true
-          tags: ${{ env.HELM_IMAGE }}
-          cache-from: type=registry,ref=${{ env.HELM_IMAGE }}
-          cache-to: type=inline
+      - name: Build and push custom images
+        run: |
+          for dir in ${CUSTOM_IMAGE_DIR}/*; do
+            if [ -d "$dir" ] && [ -f "$dir/Dockerfile" ]; then
+              IMAGE_NAME=$(basename $dir)
+              IMAGE_TAG="${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${IMAGE_NAME}:latest"
+              echo "Building and pushing image: $IMAGE_TAG"
+              docker buildx build \
+                --platform linux/amd64 \
+                --push \
+                --tag "$IMAGE_TAG" \
+                --cache-from "type=registry,ref=$IMAGE_TAG" \
+                --cache-to "type=inline" \
+                --file "$dir/Dockerfile" \
+                "$dir"
+            fi
+          done
 
   build_and_deploy_charts:
     name: Build and Deploy Helm Charts
     runs-on: ubuntu-latest
-    needs: build_helm_image
+    needs: build_custom_images
     if: |
       always() && 
       github.ref == 'refs/heads/main' &&
-      (needs.build_helm_image.result == 'success' || needs.build_helm_image.result == 'skipped')
+      (needs.build_custom_images.result == 'success' || needs.build_custom_images.result == 'skipped')
     
     container:
       image: docker.io/rprilian/helm-image:latest

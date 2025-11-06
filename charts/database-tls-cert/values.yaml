@@ -14,7 +14,7 @@ rootCA:
   key: root-ca.pem
 
 rootConcatController:
-  imageName: bitnami/kubectl:latest
+  imageName: rprilian/kubectl-concat:latest
   replicas: 1
   podSecurityContext:
     runAsUser: 1000
