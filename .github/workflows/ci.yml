@@ -27,8 +27,6 @@ jobs:
   build_custom_images:
     name: Build Custom Images
     runs-on: ubuntu-latest
-    # Only run when Dockerfiles in custom-image change
-    if: contains(github.event.head_commit.modified, 'custom-image/') || contains(github.event.head_commit.added, 'custom-image/')
     
     steps:
       - name: Checkout code
