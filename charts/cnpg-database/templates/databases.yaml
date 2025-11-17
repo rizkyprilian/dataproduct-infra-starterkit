@@ -4,7 +4,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
-  name: {{ $.Release.Name }}-{{ .name }}
+  name: {{ $.Release.Name }}-{{ .name | replace "_" "-" }}
   labels:
     {{- include "cnpg-database.labels" $ | nindent 4 }}
     cnpg.io/cluster: cluster-{{ $.Release.Name }}
