@@ -62,13 +62,13 @@ The charts are automatically published to GitHub Container Registry on every pus
 #### 1. Pull the chart
 
 ```bash
-helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.4.0
+helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.4.1
 ```
 
 #### 2. Extract the chart
 
 ```bash
-tar -xzf cnpg-database-0.4.0.tgz
+tar -xzf cnpg-database-0.4.1.tgz
 ```
 
 #### 3. Customize values
@@ -259,6 +259,11 @@ backup:
     credentials:
       accessKeyExistingSecret: "s3-credentials"
       secretKeyExistingSecret: "s3-credentials"
+      # Optional: Override the secret keys if your secret uses different key names
+      accessKeyId:
+        key: "ACCESS_KEY_ID"  # Default: "ACCESS_KEY_ID"
+      secretAccessKey:
+        key: "ACCESS_SECRET_KEY"  # Default: "ACCESS_SECRET_KEY"
 ```
 
 Create the S3 credentials secret:
@@ -268,6 +273,18 @@ kubectl create secret generic s3-credentials \
   --from-literal=ACCESS_KEY_ID='your-access-key' \
   --from-literal=ACCESS_SECRET_KEY='your-secret-key' \
   -n database-namespace
+```
+
+**Note**: If your secret uses different key names (e.g., `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`), you can override them in the `credentials` section:
+
+```yaml
+credentials:
+  accessKeyExistingSecret: "s3-credentials"
+  secretKeyExistingSecret: "s3-credentials"
+  accessKeyId:
+    key: "AWS_ACCESS_KEY_ID"  # Custom key name
+  secretAccessKey:
+    key: "AWS_SECRET_ACCESS_KEY"  # Custom key name
 ```
 
 #### GCS Backup
@@ -534,6 +551,11 @@ backup:
     credentials:
       accessKeyExistingSecret: "s3-credentials"
       secretKeyExistingSecret: "s3-credentials"
+      # Optional: Override secret keys if using different key names
+      # accessKeyId:
+      #   key: "AWS_ACCESS_KEY_ID"
+      # secretAccessKey:
+      #   key: "AWS_SECRET_ACCESS_KEY"
   scheduledBackups:
     enabled: true
     schedules:
@@ -642,7 +664,7 @@ kubectl logs cluster-my-database-1 -n database-namespace
 
 ```bash
 helm upgrade my-database oci://ghcr.io/rizkyprilian/cnpg-database \
-  --version 0.3.0 \
+  --version 0.4.1 \
   -f my-values.yaml \
   -n database-namespace
 ```
@@ -738,7 +760,7 @@ For issues and questions:
 
 ## Version
 
-- **Chart Version**: 0.3.0
+- **Chart Version**: 0.4.1
 - **PostgreSQL Version**: 16.2-3 (default)
 - **CloudNativePG Operator**: Compatible with v1.20+
 

@@ -340,6 +340,11 @@ backup:
     credentials:
       accessKeyExistingSecret: "s3-credentials" #key: AWS_ACCESS_KEY_ID
       secretKeyExistingSecret: "s3-credentials" #key: AWS_SECRET_ACCESS_KEY
+      # Optional: Override the secret keys (defaults shown below)
+      accessKeyId:
+        key: "ACCESS_KEY_ID"  # Default key name in the secret
+      secretAccessKey:
+        key: "ACCESS_SECRET_KEY"  # Default key name in the secret
 
   gcs:
     enabled: false
