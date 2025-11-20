@@ -1,0 +1,806 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CNPG Database Chart Values",
+  "type": "object",
+  "properties": {
+    "instances": {
+      "description": "Number of PostgreSQL instances in the cluster",
+      "type": "integer",
+      "minimum": 1
+    },
+    "imageName": {
+      "description": "PostgreSQL container image name",
+      "type": "string"
+    },
+    "superuser": {
+      "description": "Superuser configuration",
+      "type": "object",
+      "properties": {
+        "enableSuperuserAccess": {
+          "description": "Enable superuser access",
+          "type": "boolean"
+        },
+        "secret": {
+          "description": "Secret containing superuser password",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "Name of the existing secret",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "storage": {
+      "description": "Storage configuration",
+      "type": "object",
+      "properties": {
+        "size": {
+          "description": "Storage size for each instance",
+          "type": "string"
+        },
+        "storageClass": {
+          "description": "Storage class name",
+          "type": "string"
+        }
+      },
+      "required": ["size", "storageClass"]
+    },
+    "encryptedSealedSecrets": {
+      "description": "List of encrypted sealed secrets",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "dbRoles": {
+      "description": "List of database roles to manage",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ensure": {
+            "type": "string",
+            "enum": ["present", "absent"]
+          },
+          "comment": {
+            "type": "string"
+          },
+          "login": {
+            "type": "boolean"
+          },
+          "inherit": {
+            "type": "boolean"
+          },
+          "disablePassword": {
+            "type": "boolean"
+          },
+          "connectionLimit": {
+            "type": "integer"
+          },
+          "createrole": {
+            "type": "boolean"
+          },
+          "createdb": {
+            "type": "boolean"
+          },
+          "superuser": {
+            "type": "boolean"
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    "databases": {
+      "description": "List of databases to create declaratively",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Database name in PostgreSQL",
+            "type": "string"
+          },
+          "owner": {
+            "description": "PostgreSQL role that owns the database",
+            "type": "string"
+          },
+          "ensure": {
+            "description": "present or absent",
+            "type": "string",
+            "enum": ["present", "absent"]
+          },
+          "extensions": {
+            "description": "List of extensions to manage in the database",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ensure": {
+                  "type": "string",
+                  "enum": ["present", "absent"]
+                },
+                "schema": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              },
+              "required": ["name"]
+            }
+          },
+          "schemas": {
+            "description": "List of schemas to manage in the database",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "ensure": {
+                  "type": "string",
+                  "enum": ["present", "absent"]
+                }
+              },
+              "required": ["name"]
+            }
+          }
+        },
+        "required": ["name", "owner"]
+      }
+    },
+    "bootstrapDB": {
+      "description": "Bootstrap database configuration. Defaults to initdb if neither pg_basebackup nor recovery is specified. pg_basebackup and recovery are mutually exclusive.",
+      "type": "object",
+      "properties": {
+        "database": {
+          "description": "Database name (for initdb mode)",
+          "type": "string"
+        },
+        "dbOwner": {
+          "description": "Database owner (for initdb mode)",
+          "type": "string"
+        },
+        "encoding": {
+          "description": "Database encoding (for initdb mode)",
+          "type": "string"
+        },
+        "localeCollate": {
+          "description": "Locale collate setting (for initdb mode)",
+          "type": "string"
+        },
+        "dataChecksums": {
+          "description": "Enable data checksums (for initdb mode)",
+          "type": "boolean"
+        },
+        "postInitSQL": {
+          "description": "Post-initialization SQL scripts (for initdb mode)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": ["key", "value"]
+          }
+        },
+        "pg_basebackup": {
+          "description": "Bootstrap from live cluster using pg_basebackup (mutually exclusive with recovery)",
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "database": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "secret": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name"]
+            }
+          },
+          "required": ["source"]
+        },
+        "recovery": {
+          "description": "Bootstrap from backup using recovery (mutually exclusive with pg_basebackup)",
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "backup": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name"]
+            },
+            "database": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "recoveryTarget": {
+              "type": "object",
+              "properties": {
+                "targetTime": {
+                  "type": "string"
+                },
+                "targetXID": {
+                  "type": "string"
+                },
+                "targetName": {
+                  "type": "string"
+                },
+                "targetLSN": {
+                  "type": "string"
+                },
+                "targetImmediate": {
+                  "type": "boolean"
+                },
+                "exclusive": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "required": ["source"]
+        }
+      },
+      "not": {
+        "description": "pg_basebackup and recovery cannot both be specified",
+        "required": ["pg_basebackup", "recovery"]
+      }
+    },
+    "externalClusters": {
+      "description": "List of external clusters for pg_basebackup or recovery",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "plugin": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "object"
+              }
+            },
+            "required": ["name"]
+          },
+          "connectionParameters": {
+            "type": "object"
+          },
+          "password": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": ["name"]
+          },
+          "sslKey": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": ["name", "key"]
+          },
+          "sslCert": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": ["name", "key"]
+          },
+          "sslRootCert": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": ["name", "key"]
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    "resources": {
+      "description": "Resource requests and limits",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "memory": {
+              "type": "string"
+            },
+            "cpu": {
+              "type": "string"
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "memory": {
+              "type": "string"
+            },
+            "cpu": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "rootCA": {
+      "description": "Root CA configuration",
+      "type": "object",
+      "properties": {
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "secretName": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": ["secretName", "key"]
+          }
+        }
+      }
+    },
+    "rootConcatController": {
+      "description": "Root CA concatenation controller configuration",
+      "type": "object",
+      "properties": {
+        "imageName": {
+          "type": "string"
+        },
+        "replicas": {
+          "type": "integer"
+        },
+        "podSecurityContext": {
+          "type": "object"
+        },
+        "securityContext": {
+          "type": "object"
+        },
+        "resources": {
+          "type": "object"
+        }
+      }
+    },
+    "serverCerts": {
+      "description": "Server TLS certificate configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "commonName": {
+          "type": "string"
+        },
+        "fullchainSecretName": {
+          "type": "string"
+        },
+        "dnsNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "issuer": {
+          "type": "object",
+          "properties": {
+            "vaultPath": {
+              "type": "string"
+            },
+            "vaultServer": {
+              "type": "string",
+              "format": "uri"
+            },
+            "kubernetesAuth": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "mountPath": {
+                  "type": "string"
+                }
+              },
+              "required": ["role", "mountPath"]
+            }
+          },
+          "required": ["vaultPath", "vaultServer", "kubernetesAuth"]
+        }
+      },
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["enabled", "issuer"]
+      }
+    },
+    "replicationClientCerts": {
+      "description": "Replication client certificate configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "commonName": {
+          "type": "string"
+        },
+        "fullchainSecretName": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "object",
+          "properties": {
+            "vaultPath": {
+              "type": "string"
+            },
+            "vaultServer": {
+              "type": "string",
+              "format": "uri"
+            },
+            "kubernetesAuth": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "mountPath": {
+                  "type": "string"
+                }
+              },
+              "required": ["role", "mountPath"]
+            }
+          },
+          "required": ["vaultPath", "vaultServer", "kubernetesAuth"]
+        }
+      },
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["enabled", "issuer"]
+      }
+    },
+    "customPgHBA": {
+      "description": "Custom pg_hba.conf rules",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "affinity": {
+      "description": "Pod affinity configuration",
+      "type": "object",
+      "properties": {
+        "enablePodAntiAffinity": {
+          "type": "boolean"
+        },
+        "topologyKey": {
+          "type": "string"
+        },
+        "podAntiAffinityType": {
+          "type": "string",
+          "enum": ["preferred", "required"]
+        }
+      }
+    },
+    "managedServices": {
+      "description": "Managed services configuration",
+      "type": "object",
+      "properties": {
+        "disabledDefaultServices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ro", "r"]
+          }
+        },
+        "additional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "selectorType": {
+                "type": "string",
+                "enum": ["rw", "ro", "r"]
+              },
+              "updateStrategy": {
+                "type": "string",
+                "enum": ["patch", "replace"]
+              },
+              "serviceTemplate": {
+                "type": "object"
+              }
+            },
+            "required": ["selectorType", "serviceTemplate"]
+          }
+        }
+      }
+    },
+    "backup": {
+      "description": "Backup configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable backup",
+          "type": "boolean"
+        },
+        "retentionPolicy": {
+          "description": "Backup retention policy",
+          "type": "string"
+        },
+        "s3": {
+          "description": "S3 backup configuration",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "destinationPath": {
+              "description": "S3 destination path (e.g., s3://bucket-name/)",
+              "type": "string",
+              "pattern": "^s3://.*"
+            },
+            "endpointURL": {
+              "description": "S3 endpoint URL",
+              "type": "string",
+              "format": "uri"
+            },
+            "walCompression": {
+              "description": "WAL compression algorithm",
+              "type": "string",
+              "enum": ["gzip", "bzip2", "snappy", "lz4", "zstd", "none"]
+            },
+            "dataCompression": {
+              "description": "Data compression algorithm",
+              "type": "string",
+              "enum": ["gzip", "bzip2", "snappy", "lz4", "zstd", "none"]
+            },
+            "credentials": {
+              "type": "object",
+              "properties": {
+                "accessKeyExistingSecret": {
+                  "description": "Secret name containing access key",
+                  "type": "string"
+                },
+                "secretKeyExistingSecret": {
+                  "description": "Secret name containing secret key",
+                  "type": "string"
+                },
+                "accessKeyId": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "description": "Key name in the secret for access key ID",
+                      "type": "string"
+                    }
+                  }
+                },
+                "secretAccessKey": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "description": "Key name in the secret for secret access key",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "required": ["accessKeyExistingSecret", "secretKeyExistingSecret"]
+            }
+          },
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["enabled", "destinationPath", "endpointURL", "walCompression", "dataCompression", "credentials"]
+          }
+        },
+        "gcs": {
+          "description": "Google Cloud Storage backup configuration",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "destinationPath": {
+              "description": "GCS destination path (e.g., gs://bucket-name/)",
+              "type": "string",
+              "pattern": "^gs://.*"
+            },
+            "walCompression": {
+              "description": "WAL compression algorithm",
+              "type": "string",
+              "enum": ["gzip", "bzip2", "snappy", "lz4", "zstd", "none"]
+            },
+            "dataCompression": {
+              "description": "Data compression algorithm",
+              "type": "string",
+              "enum": ["gzip", "bzip2", "snappy", "lz4", "zstd", "none"]
+            },
+            "googleCredentialsExistingSecret": {
+              "description": "Secret name containing Google Cloud credentials",
+              "type": "string"
+            },
+            "googleCredentialsKey": {
+              "description": "Key name in the secret for Google Cloud credentials",
+              "type": "string"
+            }
+          },
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["enabled", "destinationPath", "dataCompression", "googleCredentialsExistingSecret"]
+          }
+        },
+        "volumeSnapshot": {
+          "description": "Volume snapshot backup configuration",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "className": {
+              "description": "Volume snapshot class name",
+              "type": "string"
+            }
+          },
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["enabled", "className"]
+          }
+        },
+        "initialBackup": {
+          "description": "Initial backup configuration",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Create an initial Backup CRD",
+              "type": "boolean"
+            },
+            "target": {
+              "description": "Target instance for backup",
+              "type": "string",
+              "enum": ["primary", "standby"]
+            }
+          }
+        },
+        "scheduledBackups": {
+          "description": "Scheduled backups configuration",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "cronSchedule": {
+                    "description": "Cron schedule for backup",
+                    "type": "string"
+                  },
+                  "backupOwnerReference": {
+                    "description": "Backup owner reference",
+                    "type": "string",
+                    "enum": ["cluster", "standalone"]
+                  },
+                  "method": {
+                    "description": "Backup method (auto-detected if not specified)",
+                    "type": "string",
+                    "enum": ["plugin", "volumeSnapshot"]
+                  },
+                  "target": {
+                    "description": "Target instance for backup",
+                    "type": "string",
+                    "enum": ["primary", "standby"]
+                  }
+                },
+                "required": ["cronSchedule", "target"]
+              },
+              "minItems": 1
+            }
+          },
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["enabled", "schedules"]
+          }
+        }
+      }
+    }
+  },
+  "required": ["instances", "storage"]
+}

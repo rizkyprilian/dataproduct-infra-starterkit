@@ -1,17 +1,26 @@
 {{ $rel := .Release }}
 {{- if .Values.backup.scheduledBackups.enabled }}
-{{- range .Values.backup.scheduledBackups.schedules }}
+{{- range $index, $schedule := .Values.backup.scheduledBackups.schedules }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
-  name: {{ $rel.Name }}-scheduled-backup
+  name: {{ $rel.Name }}-scheduled-backup{{ if gt (len $.Values.backup.scheduledBackups.schedules) 1 }}-{{ add $index 1 }}{{ end }}
 spec:
-  schedule: {{ .cronSchedule | quote }}
-  backupOwnerReference: {{ .backupOwnerReference | default "cluster" }}
-  immediate: {{ ternary "true" "false" (default true .immediateBackup) }}
-  method: {{ .method | default "barmanObjectStore" }}
-  target: {{ .target | default "primary" }}
+  schedule: {{ $schedule.cronSchedule | quote }}
+  backupOwnerReference: {{ $schedule.backupOwnerReference | default "cluster" }}
+  {{- if or $.Values.backup.s3.enabled $.Values.backup.gcs.enabled }}
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+    parameters:
+      barmanObjectName: {{ $rel.Name }}-{{ if $.Values.backup.s3.enabled }}s3{{ else }}gcs{{ end }}-backup
+  {{- else if $schedule.method }}
+  method: {{ $schedule.method }}
+  {{- else }}
+  method: volumeSnapshot
+  {{- end }}
+  target: {{ $schedule.target | default "primary" }}
   cluster:
     name: cluster-{{ $rel.Name }}
 {{- end }}

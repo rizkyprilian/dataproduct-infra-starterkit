@@ -172,32 +172,13 @@ externalClusters: []
   #     name: source-cluster-ca
   #     key: ca.crt
   #
-  # Example 3: For recovery - Using Barman Cloud Plugin (recommended)
+  # Example 3: For recovery - Using Barman Cloud Plugin (required for Chart v0.5.0+)
   # - name: origin
   #   plugin:
   #     name: barman-cloud.cloudnative-pg.io
   #     parameters:
-  #       barmanObjectName: cluster-example-backup  # Name of the ObjectStore resource
+  #       barmanObjectName: cluster-example-s3-backup  # Name of the ObjectStore resource
   #       serverName: cluster-example  # Original cluster name in the backup
-  #
-  # Example 4: For recovery - Direct barmanObjectStore configuration
-  # - name: origin
-  #   barmanObjectStore:
-  #     destinationPath: s3://your-bucket-name/
-  #     endpointURL: https://s3.amazonaws.com
-  #     wal:
-  #       compression: gzip
-  #       maxParallel: 8
-  #     data:
-  #       compression: gzip
-  #     s3Credentials:
-  #       accessKeyId:
-  #         name: s3-credentials
-  #         key: ACCESS_KEY_ID
-  #       secretAccessKey:
-  #         name: s3-credentials
-  #         key: ACCESS_SECRET_KEY
-  #     serverName: cluster-example  # Original cluster name in the backup
 
 resources:
   requests:
@@ -329,6 +310,8 @@ managedServices:
 backup:
   enabled: true
   # if using object store, choose either s3 or gcs. cannot be both
+  # Note: Chart v0.5.0+ uses the new plugin-based architecture with ObjectStore CRD
+  # The retentionPolicy is now configured in the ObjectStore resource
   retentionPolicy: "30d"
 
   s3:
@@ -348,19 +331,30 @@ backup:
 
   gcs:
     enabled: false
-    destinationPath: "s3://[your-bucket-name]/"
+    destinationPath: "gs://[your-bucket-name]/"
+    walCompression: "gzip"
     dataCompression: "gzip"
-    googleCredentialsExistingSecret: "gcs-credentials" #key: gcsCredentials
+    googleCredentialsExistingSecret: "gcs-credentials"
+    googleCredentialsKey: "gcsCredentials"  # Optional: key name in the secret (default: gcsCredentials)
 
   volumeSnapshot:
     enabled: false
     className: "ceph-blockpool-ssd-erasurecoded" 
+
+  # Initial Backup Configuration
+  # With plugin-based backups, you need to create a Backup CRD for the initial base backup
+  # The ScheduledBackup will handle subsequent scheduled backups
+  initialBackup:
+    enabled: true  # Set to true to create an initial Backup CRD (recommended for plugin-based backups)
+    target: primary  # Target instance: primary or standby
 
   scheduledBackups:
     enabled: true
     schedules:
       - cronSchedule: "5 1 * * 6"
         backupOwnerReference: cluster
-        immediate: true
-        method: barmanObjectStore
+        # Note: immediate flag is not supported with plugin-based backups
+        # Use initialBackup.enabled: true to create an initial Backup CRD instead
+        # method is auto-detected: plugin for s3/gcs, volumeSnapshot otherwise
+        # You can override with: method: plugin, method: volumeSnapshot, etc.
         target: primary

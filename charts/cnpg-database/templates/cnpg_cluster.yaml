@@ -130,41 +130,18 @@ spec:
 {{- end }}
 {{- end }}
 {{- if .Values.backup.enabled }}
-  backup:
-    retentionPolicy: {{ .Values.backup.retentionPolicy | default "30d" }}
-{{- if .Values.backup.s3.enabled }}
-    barmanObjectStore:
-      destinationPath: {{ .Values.backup.s3.destinationPath }}
-      endpointURL: {{ .Values.backup.s3.endpointURL }}
-      wal:
-        compression: {{ .Values.backup.s3.walCompression }}
-      data:
-        compression: {{ .Values.backup.s3.dataCompression }}
-      s3Credentials:
-        accessKeyId:
-          name: {{ .Values.backup.s3.credentials.accessKeyExistingSecret }}
-          key: {{ .Values.backup.s3.credentials.accessKeyId.key | default "ACCESS_KEY_ID" }}
-        secretAccessKey:
-          name: {{ .Values.backup.s3.credentials.secretKeyExistingSecret }}
-          key: {{ .Values.backup.s3.credentials.secretAccessKey.key | default "ACCESS_SECRET_KEY" }}
-      
-{{- end}}
-{{- if .Values.backup.gcs.enabled }}
-    barmanObjectStore:
-      destinationPath: {{ .Values.backup.gcs.destinationPath }}
-      wal:
-        compression: {{ .Values.backup.gcs.walCompression }}
-      data:
-        compression: {{ .Values.backup.gcs.dataCompression }}
-      googleCredentials:
-        applicationCredentials:
-          name: {{ .Values.backup.gcs.googleCredentialsExistingSecret }}
-          key: gcsCredentials
-{{- end}}
 {{- if .Values.backup.volumeSnapshot.enabled }}
+  backup:
     volumeSnapshot:
       className: {{ .Values.backup.volumeSnapshot.className }}
-{{- end}}
+{{- end }}
+{{- if or .Values.backup.s3.enabled .Values.backup.gcs.enabled }}
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: {{ .Release.Name }}-{{ if .Values.backup.s3.enabled }}s3{{ else }}gcs{{ end }}-backup
+{{- end }}
 {{- end }}
 {{- with .Values.affinity }}
   affinity:
@@ -182,13 +159,31 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     {{- end }}
-    {{- if .barmanObjectStore }}
-    barmanObjectStore:
-      {{- toYaml .barmanObjectStore | nindent 6 }}
-    {{- end }}
     {{- if .connectionParameters }}
     connectionParameters:
       {{- toYaml .connectionParameters | nindent 6 }}
+    {{- end }}
+    {{- if .password }}
+    password:
+      name: {{ .password.name }}
+      {{- if .password.key }}
+      key: {{ .password.key }}
+      {{- end }}
+    {{- end }}
+    {{- if .sslKey }}
+    sslKey:
+      name: {{ .sslKey.name }}
+      key: {{ .sslKey.key }}
+    {{- end }}
+    {{- if .sslCert }}
+    sslCert:
+      name: {{ .sslCert.name }}
+      key: {{ .sslCert.key }}
+    {{- end }}
+    {{- if .sslRootCert }}
+    sslRootCert:
+      name: {{ .sslRootCert.name }}
+      key: {{ .sslRootCert.key }}
     {{- end }}
   {{- end }}
 {{- end }}

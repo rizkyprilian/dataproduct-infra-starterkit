@@ -52,6 +52,49 @@ This chart deploys production-ready PostgreSQL clusters using [CloudNativePG](ht
 - (Optional) cert-manager for TLS certificates
 - (Optional) HashiCorp Vault for certificate management
 - (Optional) S3/GCS bucket for backups
+- **Chart v0.5.0+**: CloudNativePG Operator with Barman Cloud plugin support (CNPG 1.20+)
+
+## Migration from v0.4.x to v0.5.0
+
+**Important**: Chart version 0.5.0 introduces breaking changes to align with CloudNativePG's new plugin-based backup architecture. The old chart versions (0.4.x) remain available for existing deployments.
+
+### What Changed
+
+1. **Backup Configuration**: Moved from `Cluster.spec.backup.barmanObjectStore` to a separate `ObjectStore` CRD resource
+2. **Plugin Architecture**: Backups now use the `barman-cloud.cloudnative-pg.io` plugin instead of built-in Barman Cloud
+3. **Initial Backup**: The `immediate: true` flag in ScheduledBackup is no longer supported. Instead, create a separate `Backup` CRD for the initial base backup using `initialBackup.enabled: true`
+4. **ScheduledBackup**: Now uses `method: plugin` with `pluginConfiguration` instead of `method: barmanObjectStore`
+5. **Recovery**: External clusters for recovery must use plugin configuration instead of `barmanObjectStore`
+
+### Migration Steps
+
+If you're upgrading from v0.4.x:
+
+1. **Review your current backup configuration** in your values.yaml
+2. **No changes needed to values.yaml** - the chart automatically handles the migration
+3. **Upgrade the chart**:
+   ```bash
+   helm upgrade my-database oci://ghcr.io/rizkyprilian/cnpg-database \
+     --version 0.5.0 \
+     -f my-values.yaml \
+     -n database-namespace
+   ```
+4. **Verify ObjectStore resources** are created:
+   ```bash
+   kubectl get objectstore -n database-namespace
+   ```
+5. **Verify backups are working**:
+   ```bash
+   kubectl get backup -n database-namespace
+   ```
+
+### Backward Compatibility
+
+- Chart versions 0.4.x remain available for existing deployments
+- Existing backups in S3/GCS are compatible and can be restored using the new plugin architecture
+- No data migration is required
+
+For detailed migration information, see the [CloudNativePG Migration Guide](https://cloudnative-pg.io/plugin-barman-cloud/docs/migration/).
 
 ## Installation
 
@@ -62,13 +105,13 @@ The charts are automatically published to GitHub Container Registry on every pus
 #### 1. Pull the chart
 
 ```bash
-helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.4.1
+helm pull oci://ghcr.io/rizkyprilian/cnpg-database --version 0.5.0
 ```
 
 #### 2. Extract the chart
 
 ```bash
-tar -xzf cnpg-database-0.4.1.tgz
+tar -xzf cnpg-database-0.5.0.tgz
 ```
 
 #### 3. Customize values
@@ -206,8 +249,8 @@ externalClusters:
     plugin:
       name: barman-cloud.cloudnative-pg.io
       parameters:
-        barmanObjectName: cluster-example-backup
-        serverName: cluster-example
+        barmanObjectName: cluster-example-s3-backup  # Name of the ObjectStore resource
+        serverName: cluster-example  # Original cluster name in the backup
 ```
 
 See [RECOVERY.md](./RECOVERY.md) for detailed recovery documentation.
@@ -244,12 +287,14 @@ See [PG_BASEBACKUP.md](./PG_BASEBACKUP.md) for detailed cloning documentation.
 
 ### Backup Configuration
 
+**Note**: Chart v0.5.0+ uses the new plugin-based architecture. The chart automatically creates an `ObjectStore` CRD resource and configures the cluster to use the `barman-cloud.cloudnative-pg.io` plugin.
+
 #### S3 Backup
 
 ```yaml
 backup:
   enabled: true
-  retentionPolicy: "30d"
+  retentionPolicy: "30d"  # Configured in ObjectStore resource
   s3:
     enabled: true
     destinationPath: "s3://your-bucket-name/"
@@ -265,6 +310,8 @@ backup:
       secretAccessKey:
         key: "ACCESS_SECRET_KEY"  # Default: "ACCESS_SECRET_KEY"
 ```
+
+The chart automatically creates an `ObjectStore` resource named `{release-name}-s3-backup` and configures the cluster with the Barman Cloud plugin.
 
 Create the S3 credentials secret:
 
@@ -292,13 +339,31 @@ credentials:
 ```yaml
 backup:
   enabled: true
-  retentionPolicy: "30d"
+  retentionPolicy: "30d"  # Configured in ObjectStore resource
   gcs:
     enabled: true
     destinationPath: "gs://your-bucket-name/"
+    walCompression: "gzip"
     dataCompression: "gzip"
     googleCredentialsExistingSecret: "gcs-credentials"
+    googleCredentialsKey: "gcsCredentials"  # Optional: key name in secret (default: gcsCredentials)
 ```
+
+The chart automatically creates an `ObjectStore` resource named `{release-name}-gcs-backup` and configures the cluster with the Barman Cloud plugin.
+
+#### Initial Backup
+
+With the plugin-based architecture, you need to create a separate `Backup` CRD for the initial base backup. The chart can automatically create this for you:
+
+```yaml
+backup:
+  enabled: true
+  initialBackup:
+    enabled: true  # Create an initial Backup CRD (recommended)
+    target: primary  # Target instance: primary or standby
+```
+
+The chart will create a `Backup` resource named `{release-name}-initial-backup` that performs the initial base backup using the configured ObjectStore.
 
 #### Scheduled Backups
 
@@ -309,10 +374,18 @@ backup:
     schedules:
       - cronSchedule: "5 1 * * 6"  # Weekly on Saturday at 1:05 AM
         backupOwnerReference: cluster
-        immediate: true
-        method: barmanObjectStore
+        # Note: immediate flag is not supported with plugin-based backups
+        # Use initialBackup.enabled: true to create an initial Backup CRD instead
+        # method is auto-detected: plugin for s3/gcs, volumeSnapshot otherwise
+        # You can override with: method: plugin, method: volumeSnapshot, etc.
         target: primary
 ```
+
+**Important Notes**:
+- For S3/GCS backups, the chart automatically sets `method: plugin` with the appropriate `pluginConfiguration`
+- The `immediate: true` flag is **not supported** with plugin-based backups in ScheduledBackup
+- To perform an initial backup, use `initialBackup.enabled: true` to create a separate Backup CRD
+- ScheduledBackup will handle subsequent scheduled backups according to the cron schedule
 
 ### TLS Configuration
 
@@ -556,13 +629,15 @@ backup:
       #   key: "AWS_ACCESS_KEY_ID"
       # secretAccessKey:
       #   key: "AWS_SECRET_ACCESS_KEY"
+  initialBackup:
+    enabled: true  # Create initial Backup CRD
+    target: primary
   scheduledBackups:
     enabled: true
     schedules:
       - cronSchedule: "0 2 * * *"  # Daily at 2 AM
         backupOwnerReference: cluster
-        immediate: true
-        method: barmanObjectStore
+        # method is auto-detected as plugin for s3/gcs backups
         target: primary
 
 affinity:
@@ -664,7 +739,7 @@ kubectl logs cluster-my-database-1 -n database-namespace
 
 ```bash
 helm upgrade my-database oci://ghcr.io/rizkyprilian/cnpg-database \
-  --version 0.4.1 \
+  --version 0.5.0 \
   -f my-values.yaml \
   -n database-namespace
 ```
@@ -760,9 +835,9 @@ For issues and questions:
 
 ## Version
 
-- **Chart Version**: 0.4.1
+- **Chart Version**: 0.5.0
 - **PostgreSQL Version**: 16.2-3 (default)
-- **CloudNativePG Operator**: Compatible with v1.20+
+- **CloudNativePG Operator**: Compatible with v1.20+ (Barman Cloud plugin support required)
 
 ## Maintainer
 

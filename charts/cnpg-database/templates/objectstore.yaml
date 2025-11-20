@@ -1,0 +1,53 @@
+{{- if .Values.backup.enabled }}
+{{- if .Values.backup.s3.enabled }}
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Release.Name }}-s3-backup
+  labels:
+    {{- include "cnpg-database.labels" . | nindent 4 }}
+spec:
+  configuration:
+    destinationPath: {{ .Values.backup.s3.destinationPath }}
+    endpointURL: {{ .Values.backup.s3.endpointURL }}
+    wal:
+      compression: {{ .Values.backup.s3.walCompression }}
+    data:
+      compression: {{ .Values.backup.s3.dataCompression }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.backup.s3.credentials.accessKeyExistingSecret }}
+        key: {{ .Values.backup.s3.credentials.accessKeyId.key | default "ACCESS_KEY_ID" }}
+      secretAccessKey:
+        name: {{ .Values.backup.s3.credentials.secretKeyExistingSecret }}
+        key: {{ .Values.backup.s3.credentials.secretAccessKey.key | default "ACCESS_SECRET_KEY" }}
+  {{- if .Values.backup.retentionPolicy }}
+  retentionPolicy: {{ .Values.backup.retentionPolicy }}
+  {{- end }}
+{{- end }}
+{{- if .Values.backup.gcs.enabled }}
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Release.Name }}-gcs-backup
+  labels:
+    {{- include "cnpg-database.labels" . | nindent 4 }}
+spec:
+  configuration:
+    destinationPath: {{ .Values.backup.gcs.destinationPath }}
+    wal:
+      compression: {{ .Values.backup.gcs.walCompression | default "gzip" }}
+    data:
+      compression: {{ .Values.backup.gcs.dataCompression }}
+    googleCredentials:
+      applicationCredentials:
+        name: {{ .Values.backup.gcs.googleCredentialsExistingSecret }}
+        key: {{ .Values.backup.gcs.googleCredentialsKey | default "gcsCredentials" }}
+  {{- if .Values.backup.retentionPolicy }}
+  retentionPolicy: {{ .Values.backup.retentionPolicy }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
