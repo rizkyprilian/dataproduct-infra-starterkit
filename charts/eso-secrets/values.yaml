@@ -8,7 +8,7 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: "test"
 
 
 externalSecretOperator:
@@ -21,6 +21,7 @@ externalSecretOperator:
     # role: "pg-shared-dev"
   deploySecrets: []
   # - name: pg-shared-dev-accounts
+  #   type: Opaque
   #   data:
   #     - secretKey: env
   #       remoteKey: dev/pg-shared-dev-accounts
@@ -28,3 +29,27 @@ externalSecretOperator:
   #       conversionStrategy: "Default"
   #       decodingStrategy: "None"
   #       metadataPolicy: "None"
+
+# sample dockerconfig.json
+# externalSecretOperator:
+#   vaultSecretStore:
+#     enabled: true
+#     server: "https://vault.company.com"
+#     path: "kv-coredata"
+#     version: "v2"
+#     mountPath: "coredata-k8s-dev"
+#     role: "pg-shared-dev"
+#   deploySecrets:
+#     - name: pg-shared-dev-accounts
+#       data:
+#         - secretKey: username
+#           remoteKey: dev/pg-shared-dev-accounts
+#           remoteProperty: username
+#         - secretKey: password
+#           remoteKey: dev/pg-shared-dev-accounts
+#           remoteProperty: password
+#         - secretKey: registry
+#           remoteKey: dev/pg-shared-dev-accounts
+#           remoteProperty: registry
+#       templateData:
+#         .dockerconfigjson: '{"auths":{"{{ .registry | lower }}":{"username":"{{ .username }}","password":"{{ .password }}","auth":"{{ printf "%s:%s" .username .password | b64enc }}"}}}'
